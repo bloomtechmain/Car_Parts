@@ -49,7 +49,7 @@ External services you manage:
 2. Select the repository
 3. Set **Root Directory** to:
    ```
-   Car Parts eCommerce/backend
+   backend
    ```
 4. Railway detects Node.js via nixpacks and uses `railway.toml` automatically
 
@@ -131,7 +131,7 @@ railway run psql $DATABASE_URL -f src/migrations/001_init.sql
 1. Click **+ New** → **GitHub Repo** → same repository
 2. Set **Root Directory** to:
    ```
-   Car Parts eCommerce/frontend
+   frontend
    ```
 
 ### 5b. Set frontend environment variables

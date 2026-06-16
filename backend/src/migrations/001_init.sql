@@ -59,13 +59,11 @@ CREATE INDEX IF NOT EXISTS idx_replies_supplier  ON supplier_replies(supplier_id
 CREATE INDEX IF NOT EXISTS idx_customers_ticket  ON customers(ticket_id);
 
 -- Atomic ticket number generator (prevents race conditions on concurrent inserts)
+CREATE SEQUENCE IF NOT EXISTS ticket_seq START 1;
+
 CREATE OR REPLACE FUNCTION generate_ticket_number() RETURNS TEXT AS $$
-DECLARE
-  y   TEXT := TO_CHAR(NOW(), 'YYYY');
-  seq INT;
 BEGIN
-  SELECT COUNT(*) + 1 INTO seq FROM tickets WHERE ticket_number LIKE 'CPF-' || y || '-%';
-  RETURN 'CPF-' || y || '-' || LPAD(seq::TEXT, 3, '0');
+  RETURN 'CPF-' || TO_CHAR(NOW(), 'YYYY') || '-' || LPAD(nextval('ticket_seq')::TEXT, 3, '0');
 END;
 $$ LANGUAGE plpgsql;
 
