@@ -1,23 +1,21 @@
-import { PutObjectCommand } from '@aws-sdk/client-s3';
-import { r2Client, R2_BUCKET, R2_PUBLIC_URL } from '../config/r2';
+import fs from 'fs/promises';
+import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
+
+const UPLOAD_DIR = process.env.UPLOAD_DIR || './uploads';
+const BACKEND_URL = process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 3001}`;
 
 export async function uploadFile(
   buffer: Buffer,
   originalName: string,
-  mimeType: string
+  _mimeType: string
 ): Promise<string> {
-  const ext = originalName.split('.').pop() || 'jpg';
-  const key = `replies/${uuidv4()}.${ext}`;
+  const ext = path.extname(originalName) || '.jpg';
+  const filename = `${uuidv4()}${ext}`;
+  const repliesDir = path.join(UPLOAD_DIR, 'replies');
 
-  await r2Client.send(
-    new PutObjectCommand({
-      Bucket: R2_BUCKET,
-      Key: key,
-      Body: buffer,
-      ContentType: mimeType,
-    })
-  );
+  await fs.mkdir(repliesDir, { recursive: true });
+  await fs.writeFile(path.join(repliesDir, filename), buffer);
 
-  return `${R2_PUBLIC_URL}/${key}`;
+  return `${BACKEND_URL}/uploads/replies/${filename}`;
 }

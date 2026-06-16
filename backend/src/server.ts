@@ -3,6 +3,8 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
+import path from 'path';
+import fs from 'fs';
 
 import authRoutes from './routes/auth';
 import ticketRoutes from './routes/tickets';
@@ -11,6 +13,10 @@ import adminRoutes from './routes/admin';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+const UPLOAD_DIR = process.env.UPLOAD_DIR || './uploads';
+
+// Ensure upload directory exists on startup
+fs.mkdirSync(path.join(UPLOAD_DIR, 'replies'), { recursive: true });
 
 app.use(helmet());
 app.use(cors({
@@ -24,6 +30,8 @@ const ticketLimiter = rateLimit({
   max: 10,
   message: { error: 'Too many requests, please try again later.' },
 });
+
+app.use('/uploads', express.static(path.resolve(UPLOAD_DIR)));
 
 app.use('/api/auth', authRoutes);
 app.use('/api/tickets', ticketLimiter, ticketRoutes);
