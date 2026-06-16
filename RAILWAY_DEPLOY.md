@@ -1,66 +1,51 @@
 # Railway Deployment Guide — CarParts Finder
 
-## Overview
+## Architecture
 
-Two Railway services + one PostgreSQL plugin + one Volume:
+Single service deployment — one Railway service runs everything:
 
 ```
 Railway Project
-├── backend   (Node.js API — handles uploads, serves /uploads as static files)
+├── Car_Parts   (GitHub repo — builds frontend + backend, serves both)
 │   └── Volume mounted at /uploads  (persistent image storage)
-├── frontend  (React SPA — port auto-assigned)
-└── Postgres  (Railway plugin — DATABASE_URL auto-injected into backend)
+└── Postgres    (Railway plugin — DATABASE_URL auto-injected)
 ```
 
-External services you manage:
-- **Resend** — transactional email
+One URL serves both the React frontend and the Express API.
 
 ---
 
-## Prerequisites
+## Current Setup (from your Railway dashboard)
 
-- [Railway account](https://railway.app) (free tier works)
-- Railway CLI installed: `npm install -g @railway/cli`
-- Resend account with API key
+You already have:
+- ✅ **Postgres** service — Online
+- ✅ **Car_Parts** service — Online
 
----
-
-## Step 1 — Create the Railway Project
-
-1. Go to [railway.app/new](https://railway.app/new)
-2. Click **Empty project**
-3. Name it `carparts-finder`
+Follow the steps below to configure it correctly.
 
 ---
 
-## Step 2 — Add the PostgreSQL Plugin
+## Step 1 — Set Root Directory
 
-1. Inside your project, click **+ New** → **Database** → **PostgreSQL**
-2. Railway creates the database and auto-sets `DATABASE_URL`
-3. This variable will be linked to the backend service in the next step
+1. Click the **Car_Parts** service
+2. Go to **Settings** tab
+3. Under **Build** → find **Root Directory**
+4. Leave it **empty** (repo root) — Railway will use the `railway.toml` at the repo root
 
 ---
 
-## Step 3 — Deploy the Backend
+## Step 2 — Link PostgreSQL to Car_Parts
 
-### 3a. Create the backend service
+1. Click the **Car_Parts** service → **Variables** tab
+2. Click **+ Add Variable Reference**
+3. Select **Postgres** → **DATABASE_URL**
+4. This injects the database connection string automatically
 
-1. Click **+ New** → **GitHub Repo** → connect your repo
-2. Select the repository
-3. Set **Root Directory** to:
-   ```
-   backend
-   ```
-4. Railway detects Node.js via nixpacks and uses `railway.toml` automatically
+---
 
-### 3b. Link PostgreSQL to the backend
+## Step 3 — Set Environment Variables
 
-1. Open the backend service → **Variables** tab
-2. Click **+ Add Variable Reference** → select `Postgres` → `DATABASE_URL`
-
-### 3c. Set backend environment variables
-
-In the backend service **Variables** tab, add:
+In the **Car_Parts** service → **Variables** tab, add all of the following:
 
 | Variable | Value |
 |----------|-------|
@@ -71,52 +56,117 @@ In the backend service **Variables** tab, add:
 | `FROM_EMAIL` | Your verified sender (e.g. `noreply@yourdomain.com`) |
 | `FROM_NAME` | `CarParts Finder` |
 | `ADMIN_EMAIL` | Your admin email address |
-| `FRONTEND_URL` | *(leave blank for now — fill after frontend deploys)* |
-| `BACKEND_URL` | Your backend Railway URL (e.g. `https://carparts-backend.up.railway.app`) |
-| `UPLOAD_DIR` | `/uploads` *(must match the Volume mount path below)* |
+| `UPLOAD_DIR` | `/uploads` |
+| `FRONTEND_URL` | Your Railway service URL (get it from Step 4 below) |
+| `BACKEND_URL` | Same as FRONTEND_URL (it's the same service) |
 
-### 3d. Add a Railway Volume for image uploads
+> **Note:** Do NOT set `VITE_API_URL` — leaving it unset makes the frontend call the same origin automatically.
 
-Railway Volumes are persistent disks that survive redeploys.
+---
 
-1. Open the backend service → **Volumes** tab
+## Step 4 — Generate the Service URL
+
+1. Click the **Car_Parts** service → **Settings** tab
+2. Scroll to **Networking** → **Public Networking**
+3. Click **Generate Domain**
+4. Copy the URL (e.g. `https://car-parts-production-xxxx.up.railway.app`)
+5. Go back to **Variables** and set both `FRONTEND_URL` and `BACKEND_URL` to this URL
+
+---
+
+## Step 5 — Add a Volume for Image Uploads
+
+1. Click the **Car_Parts** service → **Volumes** tab
 2. Click **+ Add Volume**
 3. Set **Mount Path** to `/uploads`
 4. Click **Add**
 
-> Uploaded images are stored at `/uploads/replies/<uuid>.jpg` and served publicly at `https://your-backend.up.railway.app/uploads/replies/<uuid>.jpg`
-
-### 3e. Deploy the backend
-
-Click **Deploy** and watch the build logs:
-```
-✓ npm install
-✓ npm run build   (compiles TypeScript → dist/)
-✓ node dist/server.js
-✓ GET /api/health → 200 OK
-```
-
-Copy the backend's public URL — you'll need it for the frontend and for `BACKEND_URL`.
+Uploaded images will be stored at `/uploads/replies/<filename>` and served at `https://your-url.up.railway.app/uploads/replies/<filename>`.
 
 ---
 
-## Step 4 — Run the Database Migration
+## Step 6 — Run the Database Migration
 
-The migration SQL is at `backend/src/migrations/001_init.sql`. Run it once.
+### Option A — Railway Dashboard (easiest)
 
-### Option A — Railway CLI (recommended)
+1. Click the **Postgres** service → **Data** tab → **Query**
+2. Run **Query 1** (paste and click Run):
 
-```bash
-railway login
-railway link          # select your project
-railway run psql $DATABASE_URL -f src/migrations/001_init.sql
+```sql
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
+CREATE TABLE IF NOT EXISTS users (
+  id            SERIAL PRIMARY KEY,
+  email         VARCHAR(255) UNIQUE NOT NULL,
+  password_hash VARCHAR(255) NOT NULL,
+  role          VARCHAR(20) NOT NULL CHECK (role IN ('admin', 'supplier')),
+  company_name  VARCHAR(255),
+  phone         VARCHAR(50),
+  is_active     BOOLEAN NOT NULL DEFAULT true,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS tickets (
+  id               SERIAL PRIMARY KEY,
+  ticket_number    VARCHAR(20) UNIQUE NOT NULL,
+  car_make         VARCHAR(100) NOT NULL,
+  car_model        VARCHAR(100) NOT NULL,
+  car_year         SMALLINT NOT NULL,
+  car_vin          VARCHAR(50),
+  part_name        VARCHAR(255) NOT NULL,
+  part_description TEXT,
+  part_category    VARCHAR(100) NOT NULL,
+  status           VARCHAR(20) NOT NULL DEFAULT 'open'
+                     CHECK (status IN ('open', 'replied', 'closed')),
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS customers (
+  id         SERIAL PRIMARY KEY,
+  ticket_id  INTEGER NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
+  full_name  VARCHAR(255) NOT NULL,
+  email      VARCHAR(255) NOT NULL,
+  phone      VARCHAR(50)  NOT NULL,
+  location   VARCHAR(255) NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS supplier_replies (
+  id          SERIAL PRIMARY KEY,
+  ticket_id   INTEGER NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
+  supplier_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  price       NUMERIC(12, 2),
+  notes       TEXT,
+  image_url   TEXT,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_tickets_status   ON tickets(status);
+CREATE INDEX IF NOT EXISTS idx_tickets_created  ON tickets(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_replies_ticket   ON supplier_replies(ticket_id);
+CREATE INDEX IF NOT EXISTS idx_replies_supplier ON supplier_replies(supplier_id);
+CREATE INDEX IF NOT EXISTS idx_customers_ticket ON customers(ticket_id);
+
+INSERT INTO users (email, password_hash, role, company_name)
+VALUES (
+  'admin@carpartsfinder.com',
+  '$2a$12$olNRlYTxGcm9WS6KWPLui.RHMOXcfE5KPqr5e/3kS7N8XFtgpRqO.',
+  'admin',
+  'CarParts Finder Admin'
+) ON CONFLICT (email) DO NOTHING;
 ```
 
-### Option B — Railway dashboard query runner
+3. After that succeeds, run **Query 2** in a new query:
 
-1. Open the **Postgres** plugin → **Data** tab → **Query**
-2. Paste the contents of `backend/src/migrations/001_init.sql`
-3. Click **Run**
+```sql
+CREATE SEQUENCE IF NOT EXISTS ticket_seq START 1;
+
+CREATE OR REPLACE FUNCTION generate_ticket_number() RETURNS TEXT AS $$
+BEGIN
+  RETURN 'CPF-' || TO_CHAR(NOW(), 'YYYY') || '-' || LPAD(nextval('ticket_seq')::TEXT, 3, '0');
+END;
+$$ LANGUAGE plpgsql;
+```
 
 > **Default admin credentials** (change immediately after first login):
 > - Email: `admin@carpartsfinder.com`
@@ -124,80 +174,52 @@ railway run psql $DATABASE_URL -f src/migrations/001_init.sql
 
 ---
 
-## Step 5 — Deploy the Frontend
+## Step 7 — Deploy
 
-### 5a. Create the frontend service
-
-1. Click **+ New** → **GitHub Repo** → same repository
-2. Set **Root Directory** to:
+1. Go back to the **Car_Parts** service
+2. Click **Deploy** (or push a new commit to trigger auto-deploy)
+3. Watch the build logs — it should show:
    ```
-   frontend
+   npm install (frontend)
+   npm run build (frontend → dist/)
+   npm install (backend)
+   npm run build (backend → dist/)
+   node backend/dist/server.js
+   GET /api/health → 200 OK
    ```
-
-### 5b. Set frontend environment variables
-
-| Variable | Value |
-|----------|-------|
-| `VITE_API_URL` | Your backend Railway URL (e.g. `https://carparts-backend.up.railway.app`) |
-
-> `VITE_API_URL` is baked into the JS bundle at build time — set it **before** deploying.
-
-### 5c. Deploy
-
-Railway runs:
-```
-npm install
-npm run build    (Vite bundles React → dist/)
-serve -s dist    (serves SPA with client-side routing fallback)
-```
-
-Copy the frontend's public URL.
+4. Open your service URL in the browser — you should see the CarParts Finder homepage
 
 ---
 
-## Step 6 — Connect Frontend URL to Backend
+## Step 8 — Verify
 
-1. Go back to the **backend** service → **Variables**
-2. Set `FRONTEND_URL` to your frontend Railway URL (no trailing slash)
-3. Railway redeploys the backend automatically
-
----
-
-## Step 7 — Verify Everything Works
-
-```bash
-# Backend health
-curl https://your-backend.up.railway.app/api/health
-# Expected: {"status":"ok","timestamp":"..."}
-
-# Frontend
-open https://your-frontend.up.railway.app
+```
+https://your-url.up.railway.app          → Frontend (React app)
+https://your-url.up.railway.app/api/health → {"status":"ok"}
 ```
 
-Full flow to test:
-- [ ] Log in as admin (`admin@carpartsfinder.com` / `AdminPass123!`)
+Test the full flow:
+- [ ] Open the service URL — homepage loads
+- [ ] Go to `/dashboard/login` — login page loads
+- [ ] Log in as `admin@carpartsfinder.com` / `AdminPass123!`
 - [ ] Change admin password immediately
-- [ ] Create a supplier account via admin panel
-- [ ] Submit a ticket as a customer — confirm emails arrive
-- [ ] Log in as supplier, reply to a ticket with an image attachment
-- [ ] Confirm image displays in the ticket reply (served from `/uploads/`)
+- [ ] Create a supplier account
+- [ ] Submit a ticket as a customer — emails arrive
+- [ ] Log in as supplier and reply with an image
 
 ---
 
 ## Production Checklist
 
-- [ ] **Change default admin password** — first thing after deploy
-- [ ] **Strong `JWT_SECRET`** — at least 32 random characters, never reuse from dev
-- [ ] **Verified Resend domain** — remove `DEV_EMAIL_OVERRIDE` from backend vars so emails reach real recipients
-- [ ] **`BACKEND_URL` is correct** — must match your actual Railway backend URL exactly (no trailing slash)
-- [ ] **Volume is mounted** — check backend service → Volumes tab shows `/uploads`
-- [ ] **`UPLOAD_DIR=/uploads`** — must match the Volume mount path
+- [ ] **Change default admin password** — do this first
+- [ ] **Strong `JWT_SECRET`** — 32+ random characters
+- [ ] **Verified Resend domain** — remove `DEV_EMAIL_OVERRIDE` var so emails reach real recipients
+- [ ] **Volume mounted** — Car_Parts service → Volumes tab shows `/uploads`
+- [ ] **`FRONTEND_URL` and `BACKEND_URL` set** — to your Railway service URL
 
 ---
 
-## Environment Variables Quick Reference
-
-### Backend service
+## Environment Variables Reference
 
 ```env
 NODE_ENV=production
@@ -208,45 +230,22 @@ RESEND_API_KEY=re_xxxxxxxxxxxxxxxx
 FROM_EMAIL=noreply@yourdomain.com
 FROM_NAME=CarParts Finder
 ADMIN_EMAIL=you@yourdomain.com
-FRONTEND_URL=https://your-frontend.up.railway.app
-BACKEND_URL=https://your-backend.up.railway.app
+FRONTEND_URL=https://your-url.up.railway.app
+BACKEND_URL=https://your-url.up.railway.app
 UPLOAD_DIR=/uploads
 ```
 
-### Frontend service
-
-```env
-VITE_API_URL=https://your-backend.up.railway.app
-```
-
----
-
-## How Image Storage Works
-
-```
-Supplier uploads image
-       ↓
-Multer buffers file in memory
-       ↓
-uploadFile() writes buffer to /uploads/replies/<uuid>.jpg
-       ↓
-URL stored in DB: https://your-backend.up.railway.app/uploads/replies/<uuid>.jpg
-       ↓
-Express serves /uploads as static files → image loads in browser
-       ↓
-Railway Volume persists /uploads across redeploys
-```
+> Do NOT set `VITE_API_URL` in Railway. Leaving it unset makes API calls use the same origin.
 
 ---
 
 ## Troubleshooting
 
-| Symptom | Cause | Fix |
-|---------|-------|-----|
-| Backend crashes on start | Missing env var | Check Railway logs; verify all vars are set |
-| CORS errors in browser | `FRONTEND_URL` wrong | Set it to the exact Railway frontend URL (no trailing slash) |
-| Login returns 500 | Migration not run | Run `001_init.sql` against the Railway database |
-| Emails not sending | `FROM_EMAIL` domain not verified | Verify domain in Resend dashboard |
-| Image upload fails | `UPLOAD_DIR` not set or Volume not mounted | Check Volume is attached at `/uploads`; verify `UPLOAD_DIR=/uploads` |
-| Images return 404 | `BACKEND_URL` wrong | Set `BACKEND_URL` to the exact backend Railway URL |
-| Frontend shows blank page | `VITE_API_URL` wrong/missing | Set the var and redeploy the frontend |
+| Symptom | Fix |
+|---------|-----|
+| Build fails — "directory does not exist" | Make sure Root Directory in Settings is empty (not `backend` or `Car Parts eCommerce/backend`) |
+| Frontend loads but API calls fail | Check `NODE_ENV=production` is set; check `FRONTEND_URL` matches the service URL |
+| Login returns 500 | Run the migration SQL in Postgres → Data → Query |
+| Image uploads fail | Check Volume is mounted at `/uploads`; check `UPLOAD_DIR=/uploads` |
+| Blank white page | Open browser DevTools → check console for errors; likely missing env var |
+| Emails not sending | Verify domain in Resend dashboard; check `FROM_EMAIL` is from a verified domain |
