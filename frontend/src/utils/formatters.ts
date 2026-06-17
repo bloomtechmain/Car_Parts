@@ -18,9 +18,9 @@ export function formatDateTime(iso: string): string {
 
 export function formatPrice(amount: number | null): string {
   if (amount === null || amount === undefined) return 'Price on request';
-  return new Intl.NumberFormat('en-AE', {
+  return new Intl.NumberFormat('si-LK', {
     style: 'currency',
-    currency: 'AED',
+    currency: 'LKR',
     minimumFractionDigits: 0,
   }).format(amount);
 }
