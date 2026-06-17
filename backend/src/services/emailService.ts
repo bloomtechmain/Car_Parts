@@ -158,11 +158,11 @@ export async function sendQuoteToCustomer(
         ${devNote ? `<div style="background:#7c3aed;padding:10px 20px;font-size:12px;color:#fff;">🔧 DEV MODE — Intended for customer: ${customerEmail}</div>` : ''}
         <div style="background:#f59e0b;padding:24px 32px;">
           <h1 style="margin:0;color:#0a0f1e;font-size:22px;">You Have a New Quote!</h1>
-          <p style="margin:4px 0 0;color:#0a0f1e;opacity:0.8;">A supplier has responded to your part request</p>
+          <p style="margin:4px 0 0;color:#0a0f1e;opacity:0.8;">${reply.company_name || 'A supplier'} has responded to your part request</p>
         </div>
         <div style="padding:32px;">
           <p style="color:#94a3b8;">Hello ${customerName},</p>
-          <p style="color:#e2e8f0;line-height:1.6;">Great news! A supplier has submitted a quote for your <strong>${ticket.part_name}</strong> request (${ticket.car_year} ${ticket.car_make} ${ticket.car_model}).</p>
+          <p style="color:#e2e8f0;line-height:1.6;">Great news! <strong>${reply.company_name || 'A supplier'}</strong> has submitted a quote for your <strong>${ticket.part_name}</strong> request (${ticket.car_year} ${ticket.car_make} ${ticket.car_model}).</p>
 
           <div style="background:#1a2235;border:1px solid #f59e0b;border-radius:10px;padding:20px;margin:24px 0;">
             <p style="color:#94a3b8;margin:0 0 6px;font-size:13px;">TICKET NUMBER</p>
