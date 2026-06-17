@@ -18,7 +18,14 @@ const UPLOAD_DIR = process.env.UPLOAD_DIR || './uploads';
 // Ensure upload directory exists on startup
 fs.mkdirSync(path.join(UPLOAD_DIR, 'replies'), { recursive: true });
 
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+      'img-src': ["'self'", 'blob:', 'data:', 'https:'],
+    },
+  },
+}));
 app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:5173',
   credentials: true,
