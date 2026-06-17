@@ -18,6 +18,8 @@ const UPLOAD_DIR = process.env.UPLOAD_DIR || './uploads';
 // Ensure upload directory exists on startup
 fs.mkdirSync(path.join(UPLOAD_DIR, 'replies'), { recursive: true });
 
+app.set('trust proxy', 1);
+
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
