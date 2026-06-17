@@ -3,6 +3,7 @@ import { z } from 'zod';
 import pool from '../config/db';
 import { AuthRequest } from '../types';
 import { uploadFile } from '../services/r2Service';
+import { sendQuoteToCustomer } from '../services/emailService';
 
 export async function getTickets(req: AuthRequest, res: Response): Promise<void> {
   const result = await pool.query(
@@ -105,6 +106,28 @@ export async function submitReply(req: AuthRequest, res: Response): Promise<void
 
     await client.query('COMMIT');
     res.status(201).json(replyResult.rows[0]);
+
+    // Notify customer by email — fire and forget, don't block the response
+    pool.query(
+      `SELECT t.ticket_number, t.car_make, t.car_model, t.car_year, t.part_name,
+              c.full_name, c.email,
+              u.company_name
+       FROM tickets t
+       JOIN customers c ON c.ticket_id = t.id
+       JOIN users u ON u.id = $2
+       WHERE t.id = $1`,
+      [id, req.user!.id]
+    ).then(({ rows }) => {
+      if (!rows[0]) return;
+      const row = rows[0];
+      sendQuoteToCustomer(
+        { ticket_number: row.ticket_number, car_make: row.car_make, car_model: row.car_model, car_year: row.car_year, part_name: row.part_name, part_category: '' },
+        row.email,
+        row.full_name,
+        { price: replyResult.rows[0].price, notes: replyResult.rows[0].notes, image_url: replyResult.rows[0].image_url, company_name: row.company_name }
+      ).catch((err) => console.error('Quote email error:', err));
+    }).catch((err) => console.error('Quote email lookup error:', err));
+
   } catch (err) {
     await client.query('ROLLBACK');
     console.error('Reply error:', err);

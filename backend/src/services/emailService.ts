@@ -137,6 +137,65 @@ export async function sendTicketConfirmation(
   }
 }
 
+export async function sendQuoteToCustomer(
+  ticket: TicketData & { ticket_number: string },
+  customerEmail: string,
+  customerName: string,
+  reply: { price: number | null; notes: string | null; image_url: string | null; company_name: string | null }
+): Promise<void> {
+  const { to, devNote } = resolveRecipient(customerEmail);
+
+  const priceLine = reply.price !== null
+    ? `<p style="font-size:28px;font-weight:700;color:#f59e0b;margin:0;">Rs. ${Number(reply.price).toLocaleString('si-LK')}</p>`
+    : `<p style="color:#94a3b8;margin:0;">Price on request</p>`;
+
+  const result = await resend.emails.send({
+    from: FROM,
+    to,
+    subject: `${devNote}New Quote Received — Ticket ${ticket.ticket_number}`,
+    html: `
+      <div style="font-family:Inter,sans-serif;max-width:600px;margin:0 auto;background:#0a0f1e;color:#ffffff;border-radius:12px;overflow:hidden;">
+        ${devNote ? `<div style="background:#7c3aed;padding:10px 20px;font-size:12px;color:#fff;">🔧 DEV MODE — Intended for customer: ${customerEmail}</div>` : ''}
+        <div style="background:#f59e0b;padding:24px 32px;">
+          <h1 style="margin:0;color:#0a0f1e;font-size:22px;">You Have a New Quote!</h1>
+          <p style="margin:4px 0 0;color:#0a0f1e;opacity:0.8;">A supplier has responded to your part request</p>
+        </div>
+        <div style="padding:32px;">
+          <p style="color:#94a3b8;">Hello ${customerName},</p>
+          <p style="color:#e2e8f0;line-height:1.6;">Great news! A supplier has submitted a quote for your <strong>${ticket.part_name}</strong> request (${ticket.car_year} ${ticket.car_make} ${ticket.car_model}).</p>
+
+          <div style="background:#1a2235;border:1px solid #f59e0b;border-radius:10px;padding:20px;margin:24px 0;">
+            <p style="color:#94a3b8;margin:0 0 6px;font-size:13px;">TICKET NUMBER</p>
+            <p style="color:#f59e0b;font-size:20px;font-weight:700;margin:0 0 16px;letter-spacing:2px;">${ticket.ticket_number}</p>
+            <p style="color:#94a3b8;margin:0 0 4px;font-size:13px;">QUOTED PRICE</p>
+            ${priceLine}
+            ${reply.company_name ? `<p style="color:#64748b;font-size:12px;margin:8px 0 0;">Quoted by: ${reply.company_name}</p>` : ''}
+          </div>
+
+          ${reply.notes ? `
+          <div style="background:#1a2235;border-radius:8px;padding:16px;margin-bottom:20px;">
+            <p style="color:#94a3b8;font-size:12px;margin:0 0 6px;text-transform:uppercase;letter-spacing:1px;">Supplier Notes</p>
+            <p style="color:#e2e8f0;margin:0;line-height:1.6;">${reply.notes}</p>
+          </div>` : ''}
+
+          ${reply.image_url ? `
+          <p style="margin-bottom:20px;">
+            <a href="${reply.image_url}" style="color:#f59e0b;font-size:14px;">View Part Image →</a>
+          </p>` : ''}
+
+          <p style="color:#64748b;font-size:13px;border-top:1px solid #1a2235;padding-top:16px;margin-top:8px;">Our team will be in touch to help you compare quotes and proceed. You may receive more quotes from other suppliers — we will notify you for each one.</p>
+        </div>
+      </div>
+    `,
+  });
+
+  if (result.error) {
+    console.error('[email] Customer quote notification error:', JSON.stringify(result.error));
+  } else {
+    console.log(`[email] Quote notification sent to customer → ${to[0]} (intended: ${customerEmail})`);
+  }
+}
+
 export async function sendContactFormEmail(data: {
   name: string;
   email: string;
