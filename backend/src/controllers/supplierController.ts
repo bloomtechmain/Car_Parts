@@ -4,6 +4,7 @@ import pool from '../config/db';
 import { AuthRequest } from '../types';
 import { uploadFile } from '../services/r2Service';
 import { sendQuoteToCustomer } from '../services/emailService';
+import { sendQuoteSMS } from '../services/smsService';
 
 export async function getTickets(req: AuthRequest, res: Response): Promise<void> {
   const result = await pool.query(
@@ -110,7 +111,7 @@ export async function submitReply(req: AuthRequest, res: Response): Promise<void
     // Notify customer by email — fire and forget, don't block the response
     pool.query(
       `SELECT t.ticket_number, t.car_make, t.car_model, t.car_year, t.part_name,
-              c.full_name, c.email,
+              c.full_name, c.email, c.phone,
               u.company_name
        FROM tickets t
        JOIN customers c ON c.ticket_id = t.id
@@ -126,6 +127,17 @@ export async function submitReply(req: AuthRequest, res: Response): Promise<void
         row.full_name,
         { price: replyResult.rows[0].price, notes: replyResult.rows[0].notes, image_url: replyResult.rows[0].image_url, company_name: row.company_name }
       ).catch((err) => console.error('Quote email error:', err));
+
+      if (row.phone) {
+        const date = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+        sendQuoteSMS(row.phone, {
+          companyName: row.company_name,
+          partName: row.part_name,
+          price: replyResult.rows[0].price,
+          ticketNumber: row.ticket_number,
+          date,
+        }).catch((err) => console.error('Quote SMS error:', err));
+      }
     }).catch((err) => console.error('Quote email lookup error:', err));
 
   } catch (err) {
