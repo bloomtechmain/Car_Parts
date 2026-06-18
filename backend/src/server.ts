@@ -10,6 +10,20 @@ import authRoutes from './routes/auth';
 import ticketRoutes from './routes/tickets';
 import supplierRoutes from './routes/supplier';
 import adminRoutes from './routes/admin';
+import pool from './config/db';
+
+async function runMigrations() {
+  const migrations = [
+    `ALTER TABLE supplier_replies ADD COLUMN IF NOT EXISTS delivery_days INT`,
+    `ALTER TABLE supplier_replies ADD COLUMN IF NOT EXISTS admin_price NUMERIC(12,2)`,
+    `ALTER TABLE tickets ADD COLUMN IF NOT EXISTS options_token VARCHAR(64)`,
+    `ALTER TABLE tickets ADD COLUMN IF NOT EXISTS selected_reply_id INTEGER REFERENCES supplier_replies(id) ON DELETE SET NULL`,
+  ];
+  for (const sql of migrations) {
+    await pool.query(sql);
+  }
+  console.log('[migrations] All migrations applied');
+}
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -59,8 +73,15 @@ if (process.env.NODE_ENV === 'production') {
   });
 }
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+runMigrations()
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+    });
+  })
+  .catch((err) => {
+    console.error('[migrations] Failed to run migrations:', err.message);
+    process.exit(1);
+  });
 
 export default app;
