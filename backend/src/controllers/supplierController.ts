@@ -3,8 +3,6 @@ import { z } from 'zod';
 import pool from '../config/db';
 import { AuthRequest } from '../types';
 import { uploadFile } from '../services/r2Service';
-import { sendQuoteToCustomer } from '../services/emailService';
-import { sendQuoteSMS } from '../services/smsService';
 
 export async function getTickets(req: AuthRequest, res: Response): Promise<void> {
   const result = await pool.query(
@@ -38,7 +36,7 @@ export async function getTicket(req: AuthRequest, res: Response): Promise<void> 
   }
 
   const myReplyResult = await pool.query(
-    `SELECT id, price, notes, image_url, created_at FROM supplier_replies
+    `SELECT id, price, delivery_days, notes, image_url, created_at FROM supplier_replies
      WHERE ticket_id = $1 AND supplier_id = $2`,
     [id, req.user!.id]
   );
@@ -50,7 +48,14 @@ export async function getTicket(req: AuthRequest, res: Response): Promise<void> 
 }
 
 const replySchema = z.object({
-  price: z.preprocess((v) => (v !== '' && v !== null && v !== undefined ? Number(v) : undefined), z.number().positive().optional()),
+  price: z.preprocess(
+    (v) => (v !== '' && v !== null && v !== undefined ? Number(v) : undefined),
+    z.number().positive().optional()
+  ),
+  delivery_days: z.preprocess(
+    (v) => (v !== '' && v !== null && v !== undefined ? Number(v) : undefined),
+    z.number().int().positive({ message: 'Delivery days must be a positive number' })
+  ),
   notes: z.string().max(2000).optional(),
 });
 
@@ -96,9 +101,9 @@ export async function submitReply(req: AuthRequest, res: Response): Promise<void
     await client.query('BEGIN');
 
     const replyResult = await client.query(
-      `INSERT INTO supplier_replies (ticket_id, supplier_id, price, notes, image_url)
-       VALUES ($1,$2,$3,$4,$5) RETURNING *`,
-      [id, req.user!.id, parsed.data.price || null, parsed.data.notes || null, imageUrl]
+      `INSERT INTO supplier_replies (ticket_id, supplier_id, price, delivery_days, notes, image_url)
+       VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
+      [id, req.user!.id, parsed.data.price || null, parsed.data.delivery_days, parsed.data.notes || null, imageUrl]
     );
 
     if (ticketResult.rows[0].status === 'open') {
@@ -107,39 +112,6 @@ export async function submitReply(req: AuthRequest, res: Response): Promise<void
 
     await client.query('COMMIT');
     res.status(201).json(replyResult.rows[0]);
-
-    // Notify customer by email — fire and forget, don't block the response
-    pool.query(
-      `SELECT t.ticket_number, t.car_make, t.car_model, t.car_year, t.part_name,
-              c.full_name, c.email, c.phone,
-              u.company_name
-       FROM tickets t
-       JOIN customers c ON c.ticket_id = t.id
-       JOIN users u ON u.id = $2
-       WHERE t.id = $1`,
-      [id, req.user!.id]
-    ).then(({ rows }) => {
-      if (!rows[0]) return;
-      const row = rows[0];
-      sendQuoteToCustomer(
-        { ticket_number: row.ticket_number, car_make: row.car_make, car_model: row.car_model, car_year: row.car_year, part_name: row.part_name, part_category: '' },
-        row.email,
-        row.full_name,
-        { price: replyResult.rows[0].price, notes: replyResult.rows[0].notes, image_url: replyResult.rows[0].image_url, company_name: row.company_name }
-      ).catch((err) => console.error('Quote email error:', err));
-
-      if (row.phone) {
-        const date = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-        sendQuoteSMS(row.phone, {
-          companyName: row.company_name,
-          partName: row.part_name,
-          price: replyResult.rows[0].price,
-          ticketNumber: row.ticket_number,
-          date,
-        }).catch((err) => console.error('Quote SMS error:', err));
-      }
-    }).catch((err) => console.error('Quote email lookup error:', err));
-
   } catch (err) {
     await client.query('ROLLBACK');
     console.error('Reply error:', err);

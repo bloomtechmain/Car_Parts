@@ -5,6 +5,8 @@ import {
   getTickets,
   getTicket,
   updateTicketStatus,
+  updateReplyAdminPrice,
+  sendOptionsToCustomer,
   getSuppliers,
   createSupplier,
   updateSupplier,
@@ -18,6 +20,8 @@ router.use(authenticate, requireRole('admin'));
 router.get('/tickets', getTickets);
 router.get('/tickets/:id', getTicket);
 router.patch('/tickets/:id/status', updateTicketStatus);
+router.patch('/tickets/:id/replies/:replyId', updateReplyAdminPrice);
+router.post('/tickets/:id/send-options', sendOptionsToCustomer);
 
 router.get('/suppliers', getSuppliers);
 router.post('/suppliers', createSupplier);

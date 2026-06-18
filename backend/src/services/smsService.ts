@@ -2,27 +2,11 @@ const FITSMS_API_URL = 'https://app.fitsms.lk/api/v4/sms/send';
 const FITSMS_API_KEY = process.env.FITSMS_API_KEY || '';
 const SENDER_ID = 'BloomTech';
 
-export async function sendQuoteSMS(
-  phone: string,
-  data: {
-    companyName: string | null;
-    partName: string;
-    price: number | null;
-    ticketNumber: string;
-    date: string;
-  }
-): Promise<void> {
+async function sendSMS(phone: string, message: string): Promise<void> {
   if (!FITSMS_API_KEY) {
     console.warn('[sms] FITSMS_API_KEY not set — skipping SMS');
     return;
   }
-
-  const priceText = data.price !== null ? `Rs.${Number(data.price).toLocaleString('si-LK')}` : 'Price on request';
-  const supplier = data.companyName || 'A supplier';
-
-  const message =
-    `CarParts Finder: ${supplier} quoted ${priceText} for your ${data.partName} request ` +
-    `(${data.ticketNumber}) on ${data.date}. Our team will be in touch soon.`;
 
   try {
     const res = await fetch(FITSMS_API_URL, {
@@ -44,9 +28,27 @@ export async function sendQuoteSMS(
     if (json.status !== 'success') {
       console.error('[sms] FitSMS error:', json.message);
     } else {
-      console.log(`[sms] Quote SMS sent to ${phone} (${data.ticketNumber})`);
+      console.log(`[sms] SMS sent to ${phone}`);
     }
   } catch (err) {
     console.error('[sms] Failed to send SMS:', err);
   }
+}
+
+export async function sendOrderConfirmationSMS(
+  phone: string,
+  data: {
+    partName: string;
+    ticketNumber: string;
+    adminPrice: number;
+    deliveryDays: number;
+    optionNumber: number;
+  }
+): Promise<void> {
+  const priceText = `Rs.${Number(data.adminPrice).toLocaleString('si-LK')}`;
+  const message =
+    `CarParts Finder: Your order is confirmed! Option ${data.optionNumber} selected for your ${data.partName} ` +
+    `(${data.ticketNumber}). Price: ${priceText}. Delivery: ${data.deliveryDays} day${data.deliveryDays !== 1 ? 's' : ''}. Our team will be in touch.`;
+
+  await sendSMS(phone, message);
 }

@@ -10,8 +10,6 @@ const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@carpartsfinder.com';
 const DEV_OVERRIDE = process.env.DEV_EMAIL_OVERRIDE;
 
-// When DEV_EMAIL_OVERRIDE is set, all emails go to that address.
-// Remove it from .env once you verify a domain at resend.com/domains.
 function resolveRecipient(intended: string): { to: string[]; devNote: string } {
   if (DEV_OVERRIDE && intended !== DEV_OVERRIDE) {
     return { to: [DEV_OVERRIDE], devNote: `[DEV → intended for: ${intended}] ` };
@@ -78,7 +76,7 @@ export async function sendTicketToSuppliers(
           </div>
           <div style="padding:32px;">
             <p style="color:#94a3b8;margin-bottom:8px;">Hello ${s.company_name || 'Supplier'},</p>
-            <p style="color:#e2e8f0;line-height:1.6;">A new part request has been submitted. If you have this part available, please log in to your supplier dashboard and submit your quote.</p>
+            <p style="color:#e2e8f0;line-height:1.6;">A new part request has been submitted. If you have this part available, please log in to your supplier dashboard and submit your quote with your price and estimated delivery time.</p>
             ${partDetailsTable(ticket)}
             <div style="text-align:center;margin:32px 0;">
               <a href="${FRONTEND_URL}/dashboard/supplier" style="background:#f59e0b;color:#0a0f1e;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:700;font-size:16px;">View & Reply to Ticket</a>
@@ -124,7 +122,7 @@ export async function sendTicketConfirmation(
             <p style="color:#f59e0b;font-size:28px;font-weight:700;margin:0;letter-spacing:2px;">${ticket.ticket_number}</p>
           </div>
           <p style="color:#94a3b8;font-size:14px;">Part: <strong style="color:#e2e8f0;">${ticket.part_name}</strong> for ${ticket.car_year} ${ticket.car_make} ${ticket.car_model}</p>
-          <p style="color:#64748b;font-size:13px;border-top:1px solid #1a2235;padding-top:16px;margin-top:24px;">We will contact you once we have quotes from our suppliers. Keep this ticket number for your reference.</p>
+          <p style="color:#64748b;font-size:13px;border-top:1px solid #1a2235;padding-top:16px;margin-top:24px;">We will contact you once we have pricing options ready. Keep this ticket number for your reference.</p>
         </div>
       </div>
     `,
@@ -137,62 +135,152 @@ export async function sendTicketConfirmation(
   }
 }
 
-export async function sendQuoteToCustomer(
-  ticket: TicketData & { ticket_number: string },
+export interface QuoteOption {
+  reply_id: number;
+  admin_price: number;
+  delivery_days: number;
+  option_number: number;
+}
+
+export async function sendOptionsEmail(
+  ticket: TicketData & { ticket_number: string; options_token: string },
   customerEmail: string,
   customerName: string,
-  reply: { price: number | null; notes: string | null; image_url: string | null; company_name: string | null }
+  options: QuoteOption[]
 ): Promise<void> {
   const { to, devNote } = resolveRecipient(customerEmail);
 
-  const priceLine = reply.price !== null
-    ? `<p style="font-size:28px;font-weight:700;color:#f59e0b;margin:0;">Rs. ${Number(reply.price).toLocaleString('si-LK')}</p>`
-    : `<p style="color:#94a3b8;margin:0;">Price on request</p>`;
+  const optionCards = options.map((opt) => {
+    const selectUrl = `${FRONTEND_URL}/select-option?token=${ticket.options_token}&reply=${opt.reply_id}`;
+    return `
+      <div style="background:#1a2235;border:1px solid #1e2d45;border-radius:12px;padding:20px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <span style="background:#f59e0b;color:#0a0f1e;font-weight:700;font-size:12px;padding:4px 10px;border-radius:20px;">OPTION ${opt.option_number}</span>
+        </div>
+        <p style="color:#f59e0b;font-size:26px;font-weight:700;margin:0 0 6px;">Rs. ${Number(opt.admin_price).toLocaleString('si-LK')}</p>
+        <p style="color:#94a3b8;font-size:14px;margin:0 0 16px;">Estimated delivery: <strong style="color:#e2e8f0;">${opt.delivery_days} day${opt.delivery_days !== 1 ? 's' : ''}</strong></p>
+        <a href="${selectUrl}" style="display:inline-block;background:#f59e0b;color:#0a0f1e;padding:10px 24px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;">Select This Option</a>
+      </div>
+    `;
+  }).join('');
 
   const result = await resend.emails.send({
     from: FROM,
     to,
-    subject: `${devNote}New Quote Received — Ticket ${ticket.ticket_number}`,
+    subject: `${devNote}Pricing Options Ready — Ticket ${ticket.ticket_number}`,
     html: `
       <div style="font-family:Inter,sans-serif;max-width:600px;margin:0 auto;background:#0a0f1e;color:#ffffff;border-radius:12px;overflow:hidden;">
         ${devNote ? `<div style="background:#7c3aed;padding:10px 20px;font-size:12px;color:#fff;">🔧 DEV MODE — Intended for customer: ${customerEmail}</div>` : ''}
         <div style="background:#f59e0b;padding:24px 32px;">
-          <h1 style="margin:0;color:#0a0f1e;font-size:22px;">You Have a New Quote!</h1>
-          <p style="margin:4px 0 0;color:#0a0f1e;opacity:0.8;">${reply.company_name || 'A supplier'} has responded to your part request</p>
+          <h1 style="margin:0;color:#0a0f1e;font-size:22px;">Your Pricing Options Are Ready!</h1>
+          <p style="margin:4px 0 0;color:#0a0f1e;opacity:0.8;">Please choose the option that best suits you</p>
         </div>
         <div style="padding:32px;">
           <p style="color:#94a3b8;">Hello ${customerName},</p>
-          <p style="color:#e2e8f0;line-height:1.6;">Great news! <strong>${reply.company_name || 'A supplier'}</strong> has submitted a quote for your <strong>${ticket.part_name}</strong> request (${ticket.car_year} ${ticket.car_make} ${ticket.car_model}).</p>
+          <p style="color:#e2e8f0;line-height:1.6;">We have found <strong>${options.length} option${options.length !== 1 ? 's' : ''}</strong> for your <strong>${ticket.part_name}</strong> request (${ticket.car_year} ${ticket.car_make} ${ticket.car_model}).</p>
 
-          <div style="background:#1a2235;border:1px solid #f59e0b;border-radius:10px;padding:20px;margin:24px 0;">
-            <p style="color:#94a3b8;margin:0 0 6px;font-size:13px;">TICKET NUMBER</p>
-            <p style="color:#f59e0b;font-size:20px;font-weight:700;margin:0 0 16px;letter-spacing:2px;">${ticket.ticket_number}</p>
-            <p style="color:#94a3b8;margin:0 0 4px;font-size:13px;">QUOTED PRICE</p>
-            ${priceLine}
-            ${reply.company_name ? `<p style="color:#64748b;font-size:12px;margin:8px 0 0;">Quoted by: ${reply.company_name}</p>` : ''}
+          <div style="background:#1a2235;border:1px solid #f59e0b;border-radius:10px;padding:12px 20px;margin:20px 0;text-align:center;">
+            <p style="color:#94a3b8;margin:0 0 4px;font-size:12px;">TICKET NUMBER</p>
+            <p style="color:#f59e0b;font-size:18px;font-weight:700;margin:0;letter-spacing:2px;">${ticket.ticket_number}</p>
           </div>
 
-          ${reply.notes ? `
-          <div style="background:#1a2235;border-radius:8px;padding:16px;margin-bottom:20px;">
-            <p style="color:#94a3b8;font-size:12px;margin:0 0 6px;text-transform:uppercase;letter-spacing:1px;">Supplier Notes</p>
-            <p style="color:#e2e8f0;margin:0;line-height:1.6;">${reply.notes}</p>
-          </div>` : ''}
+          <p style="color:#94a3b8;font-size:14px;margin-bottom:20px;">Review the options below and click <strong style="color:#f59e0b;">Select This Option</strong> on the one you prefer to place your order:</p>
 
-          ${reply.image_url ? `
-          <p style="margin-bottom:20px;">
-            <a href="${reply.image_url}" style="color:#f59e0b;font-size:14px;">View Part Image →</a>
-          </p>` : ''}
+          ${optionCards}
 
-          <p style="color:#64748b;font-size:13px;border-top:1px solid #1a2235;padding-top:16px;margin-top:8px;">Our team will be in touch to help you compare quotes and proceed. You may receive more quotes from other suppliers — we will notify you for each one.</p>
+          <p style="color:#64748b;font-size:13px;border-top:1px solid #1a2235;padding-top:16px;margin-top:8px;">Once you select an option, your order will be confirmed and we will take care of the rest. Supplier details are not shown — all arrangements are handled by CarParts Finder.</p>
         </div>
       </div>
     `,
   });
 
   if (result.error) {
-    console.error('[email] Customer quote notification error:', JSON.stringify(result.error));
+    console.error('[email] Options email error:', JSON.stringify(result.error));
   } else {
-    console.log(`[email] Quote notification sent to customer → ${to[0]} (intended: ${customerEmail})`);
+    console.log(`[email] Options email sent to customer → ${to[0]} (intended: ${customerEmail})`);
+  }
+}
+
+export async function sendOrderConfirmationToCustomer(
+  ticket: TicketData & { ticket_number: string },
+  customerEmail: string,
+  customerName: string,
+  option: { admin_price: number; delivery_days: number; option_number: number }
+): Promise<void> {
+  const { to, devNote } = resolveRecipient(customerEmail);
+
+  const result = await resend.emails.send({
+    from: FROM,
+    to,
+    subject: `${devNote}Order Confirmed — Ticket ${ticket.ticket_number}`,
+    html: `
+      <div style="font-family:Inter,sans-serif;max-width:600px;margin:0 auto;background:#0a0f1e;color:#ffffff;border-radius:12px;overflow:hidden;">
+        ${devNote ? `<div style="background:#7c3aed;padding:10px 20px;font-size:12px;color:#fff;">🔧 DEV MODE — Intended for customer: ${customerEmail}</div>` : ''}
+        <div style="background:#22c55e;padding:24px 32px;">
+          <h1 style="margin:0;color:#ffffff;font-size:22px;">Order Confirmed!</h1>
+          <p style="margin:4px 0 0;color:#ffffff;opacity:0.9;">Your selection has been placed successfully</p>
+        </div>
+        <div style="padding:32px;">
+          <p style="color:#94a3b8;">Hello ${customerName},</p>
+          <p style="color:#e2e8f0;line-height:1.6;">Thank you for your order! Your selection for <strong>${ticket.part_name}</strong> (${ticket.car_year} ${ticket.car_make} ${ticket.car_model}) has been confirmed.</p>
+
+          <div style="background:#1a2235;border:1px solid #22c55e;border-radius:10px;padding:20px;margin:24px 0;">
+            <p style="color:#94a3b8;margin:0 0 4px;font-size:12px;">TICKET NUMBER</p>
+            <p style="color:#f59e0b;font-size:18px;font-weight:700;margin:0 0 16px;letter-spacing:2px;">${ticket.ticket_number}</p>
+            <p style="color:#94a3b8;margin:0 0 4px;font-size:12px;">SELECTED OPTION</p>
+            <p style="color:#e2e8f0;font-weight:600;margin:0 0 12px;">Option ${option.option_number}</p>
+            <p style="color:#94a3b8;margin:0 0 4px;font-size:12px;">PRICE</p>
+            <p style="color:#f59e0b;font-size:24px;font-weight:700;margin:0 0 12px;">Rs. ${Number(option.admin_price).toLocaleString('si-LK')}</p>
+            <p style="color:#94a3b8;margin:0 0 4px;font-size:12px;">ESTIMATED DELIVERY</p>
+            <p style="color:#e2e8f0;font-weight:600;margin:0;">${option.delivery_days} day${option.delivery_days !== 1 ? 's' : ''}</p>
+          </div>
+
+          <p style="color:#64748b;font-size:13px;border-top:1px solid #1a2235;padding-top:16px;margin-top:8px;">Our team will be in touch with further delivery details. Thank you for choosing CarParts Finder!</p>
+        </div>
+      </div>
+    `,
+  });
+
+  if (result.error) {
+    console.error('[email] Order confirmation error:', JSON.stringify(result.error));
+  } else {
+    console.log(`[email] Order confirmation sent to customer → ${to[0]}`);
+  }
+}
+
+export async function sendSupplierOrderNotification(
+  supplierEmail: string,
+  companyName: string | null,
+  ticket: TicketData & { ticket_number: string },
+  delivery_days: number
+): Promise<void> {
+  const { to, devNote } = resolveRecipient(supplierEmail);
+
+  const result = await resend.emails.send({
+    from: FROM,
+    to,
+    subject: `${devNote}Your Quote Was Selected — Ticket ${ticket.ticket_number}`,
+    html: `
+      <div style="font-family:Inter,sans-serif;max-width:600px;margin:0 auto;background:#0a0f1e;color:#ffffff;border-radius:12px;overflow:hidden;">
+        ${devNote ? `<div style="background:#7c3aed;padding:10px 20px;font-size:12px;color:#fff;">🔧 DEV MODE — Intended for supplier: ${supplierEmail}</div>` : ''}
+        <div style="background:#f59e0b;padding:24px 32px;">
+          <h1 style="margin:0;color:#0a0f1e;font-size:22px;">Your Quote Was Selected!</h1>
+          <p style="margin:4px 0 0;color:#0a0f1e;opacity:0.8;">A customer has chosen your offer</p>
+        </div>
+        <div style="padding:32px;">
+          <p style="color:#94a3b8;">Hello ${companyName || 'Supplier'},</p>
+          <p style="color:#e2e8f0;line-height:1.6;">A customer has selected your quote for the following part request. Please prepare for delivery within your stated timeframe of <strong>${delivery_days} day${delivery_days !== 1 ? 's' : ''}</strong>.</p>
+          ${partDetailsTable(ticket)}
+          <p style="color:#64748b;font-size:13px;border-top:1px solid #1a2235;padding-top:16px;margin-top:16px;">Our team will coordinate the delivery details with you. Do not contact the customer directly — all arrangements go through CarParts Finder.</p>
+        </div>
+      </div>
+    `,
+  });
+
+  if (result.error) {
+    console.error('[email] Supplier order notification error:', JSON.stringify(result.error));
+  } else {
+    console.log(`[email] Supplier order notification sent → ${to[0]}`);
   }
 }
 
@@ -223,4 +311,3 @@ export async function sendContactFormEmail(data: {
     console.error('[email] Contact form error:', JSON.stringify(result.error));
   }
 }
-

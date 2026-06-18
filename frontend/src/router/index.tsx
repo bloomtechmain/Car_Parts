@@ -4,6 +4,7 @@ import FindPartsPage from '../pages/public/FindPartsPage';
 import AboutUsPage from '../pages/public/AboutUsPage';
 import FAQPage from '../pages/public/FAQPage';
 import ContactUsPage from '../pages/public/ContactUsPage';
+import SelectOptionPage from '../pages/public/SelectOptionPage';
 import LoginPage from '../pages/dashboard/LoginPage';
 import SupplierDashboard from '../pages/dashboard/SupplierDashboard';
 import AdminDashboard from '../pages/dashboard/AdminDashboard';
@@ -22,6 +23,7 @@ export const router = createBrowserRouter(
         { path: '/contact', element: <ContactUsPage /> },
       ],
     },
+    { path: '/select-option', element: <SelectOptionPage /> },
     { path: '/dashboard/login', element: <LoginPage /> },
     {
       path: '/dashboard/supplier',

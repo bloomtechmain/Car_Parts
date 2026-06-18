@@ -9,6 +9,7 @@ import api from '../../services/api';
 
 const schema = z.object({
   price: z.string().optional(),
+  delivery_days: z.string().min(1, 'Delivery days is required'),
   notes: z.string().max(2000).optional(),
 });
 
@@ -44,6 +45,7 @@ export default function ReplyForm({ ticketId, ticketNumber, onSuccess, onCancel 
     try {
       const formData = new FormData();
       if (data.price) formData.append('price', data.price);
+      formData.append('delivery_days', data.delivery_days);
       if (data.notes) formData.append('notes', data.notes);
       if (imageFile) formData.append('image', imageFile);
 
@@ -74,9 +76,25 @@ export default function ReplyForm({ ticketId, ticketNumber, onSuccess, onCancel 
             {...register('price')}
             type="number"
             step="0.01"
-            placeholder="e.g. 250.00"
+            placeholder="e.g. 25000.00"
             className="input-base"
           />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-slate-300 mb-1.5">
+            Delivery Days <span className="text-red-400">*</span>
+          </label>
+          <input
+            {...register('delivery_days')}
+            type="number"
+            min="1"
+            placeholder="e.g. 3"
+            className="input-base"
+          />
+          {errors.delivery_days && (
+            <p className="text-red-400 text-xs mt-1">{errors.delivery_days.message}</p>
+          )}
         </div>
 
         <div>
@@ -84,7 +102,7 @@ export default function ReplyForm({ ticketId, ticketNumber, onSuccess, onCancel 
           <textarea
             {...register('notes')}
             rows={3}
-            placeholder="Part condition, warranty, availability, delivery time..."
+            placeholder="Part condition, warranty, availability..."
             className="input-base resize-none"
           />
           {errors.notes && <p className="text-red-400 text-xs mt-1">{errors.notes.message}</p>}

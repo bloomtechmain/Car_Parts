@@ -38,6 +38,8 @@ export interface SupplierReply {
   ticket_id: number;
   supplier_id: number;
   price: number | null;
+  delivery_days: number | null;
+  admin_price: number | null;
   notes: string | null;
   image_url: string | null;
   created_at: string;

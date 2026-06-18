@@ -1,8 +1,10 @@
 import { Response } from 'express';
 import { z } from 'zod';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import pool from '../config/db';
 import { AuthRequest } from '../types';
+import { sendOptionsEmail, QuoteOption } from '../services/emailService';
 
 export async function getTickets(_req: AuthRequest, res: Response): Promise<void> {
   const result = await pool.query(
@@ -37,7 +39,7 @@ export async function getTicket(req: AuthRequest, res: Response): Promise<void> 
   );
 
   const repliesResult = await pool.query(
-    `SELECT sr.id, sr.price, sr.notes, sr.image_url, sr.created_at,
+    `SELECT sr.id, sr.price, sr.delivery_days, sr.admin_price, sr.notes, sr.image_url, sr.created_at,
             u.company_name, u.email AS supplier_email
      FROM supplier_replies sr
      JOIN users u ON u.id = sr.supplier_id
@@ -71,6 +73,90 @@ export async function updateTicketStatus(req: AuthRequest, res: Response): Promi
     return;
   }
   res.json(result.rows[0]);
+}
+
+export async function updateReplyAdminPrice(req: AuthRequest, res: Response): Promise<void> {
+  const { id, replyId } = req.params;
+  const schema = z.object({
+    admin_price: z.number().positive(),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: 'Invalid admin price' });
+    return;
+  }
+
+  const result = await pool.query(
+    `UPDATE supplier_replies SET admin_price = $1
+     WHERE id = $2 AND ticket_id = $3
+     RETURNING id, admin_price`,
+    [parsed.data.admin_price, replyId, id]
+  );
+  if (!result.rows[0]) {
+    res.status(404).json({ error: 'Reply not found' });
+    return;
+  }
+  res.json(result.rows[0]);
+}
+
+export async function sendOptionsToCustomer(req: AuthRequest, res: Response): Promise<void> {
+  const { id } = req.params;
+
+  const ticketResult = await pool.query(
+    'SELECT * FROM tickets WHERE id = $1',
+    [id]
+  );
+  if (!ticketResult.rows[0]) {
+    res.status(404).json({ error: 'Ticket not found' });
+    return;
+  }
+
+  const customerResult = await pool.query(
+    'SELECT full_name, email, phone FROM customers WHERE ticket_id = $1',
+    [id]
+  );
+  if (!customerResult.rows[0]) {
+    res.status(404).json({ error: 'Customer not found' });
+    return;
+  }
+
+  const repliesResult = await pool.query(
+    `SELECT id, admin_price, delivery_days FROM supplier_replies
+     WHERE ticket_id = $1 AND admin_price IS NOT NULL
+     ORDER BY created_at ASC`,
+    [id]
+  );
+
+  if (repliesResult.rows.length === 0) {
+    res.status(400).json({ error: 'No replies with admin price set. Please set prices before sending options.' });
+    return;
+  }
+
+  const token = crypto.randomBytes(32).toString('hex');
+
+  await pool.query(
+    'UPDATE tickets SET options_token = $1 WHERE id = $2',
+    [token, id]
+  );
+
+  const ticket = ticketResult.rows[0];
+  const customer = customerResult.rows[0];
+
+  const options: QuoteOption[] = repliesResult.rows.map((r, i) => ({
+    reply_id: r.id,
+    admin_price: Number(r.admin_price),
+    delivery_days: Number(r.delivery_days),
+    option_number: i + 1,
+  }));
+
+  res.json({ message: 'Options sent to customer', options_count: options.length });
+
+  sendOptionsEmail(
+    { ...ticket, options_token: token },
+    customer.email,
+    customer.full_name,
+    options
+  ).catch((err) => console.error('Options email error:', err));
 }
 
 export async function getSuppliers(_req: AuthRequest, res: Response): Promise<void> {
