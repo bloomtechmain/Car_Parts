@@ -284,6 +284,75 @@ export async function sendSupplierOrderNotification(
   }
 }
 
+export async function sendAdminSelectionNotification(params: {
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  ticketNumber: string;
+  ticketId: number;
+  carMake: string;
+  carModel: string;
+  carYear: number;
+  partName: string;
+  partCategory: string;
+  supplierName: string | null;
+  option: { option_number: number; admin_price: number; delivery_days: number };
+}): Promise<void> {
+  const { customerName, customerEmail, customerPhone, ticketNumber, ticketId,
+          carMake, carModel, carYear, partName, partCategory,
+          supplierName, option } = params;
+
+  const result = await resend.emails.send({
+    from: FROM,
+    to: [ADMIN_EMAIL],
+    subject: `Customer Selected Option ${option.option_number} — Ticket ${ticketNumber}`,
+    html: `
+      <div style="font-family:Inter,sans-serif;max-width:600px;margin:0 auto;background:#0a0f1e;color:#ffffff;border-radius:12px;overflow:hidden;">
+        <div style="background:#f59e0b;padding:24px 32px;">
+          <h1 style="margin:0;color:#0a0f1e;font-size:22px;">Customer Has Selected an Option</h1>
+          <p style="margin:4px 0 0;color:#0a0f1e;opacity:0.8;">Ticket #${ticketNumber} — Action required</p>
+        </div>
+        <div style="padding:32px;">
+          <p style="color:#e2e8f0;line-height:1.6;margin-bottom:24px;">A customer has confirmed their option selection. Here are the full details:</p>
+
+          <h3 style="color:#f59e0b;font-size:14px;text-transform:uppercase;letter-spacing:1px;margin:0 0 12px;">Customer Details</h3>
+          <table style="border-collapse:collapse;width:100%;margin-bottom:24px;">
+            <tr style="background:#1a2235;"><td style="padding:10px 14px;font-weight:600;color:#94a3b8;width:40%;">Name</td><td style="padding:10px 14px;color:#e2e8f0;">${customerName}</td></tr>
+            <tr><td style="padding:10px 14px;font-weight:600;color:#94a3b8;">Email</td><td style="padding:10px 14px;color:#e2e8f0;">${customerEmail}</td></tr>
+            <tr style="background:#1a2235;"><td style="padding:10px 14px;font-weight:600;color:#94a3b8;">Phone</td><td style="padding:10px 14px;color:#e2e8f0;">${customerPhone}</td></tr>
+          </table>
+
+          <h3 style="color:#f59e0b;font-size:14px;text-transform:uppercase;letter-spacing:1px;margin:0 0 12px;">Ticket & Vehicle</h3>
+          <table style="border-collapse:collapse;width:100%;margin-bottom:24px;">
+            <tr style="background:#1a2235;"><td style="padding:10px 14px;font-weight:600;color:#94a3b8;width:40%;">Ticket ID</td><td style="padding:10px 14px;color:#e2e8f0;">#${ticketId} (${ticketNumber})</td></tr>
+            <tr><td style="padding:10px 14px;font-weight:600;color:#94a3b8;">Car Brand</td><td style="padding:10px 14px;color:#e2e8f0;">${carMake}</td></tr>
+            <tr style="background:#1a2235;"><td style="padding:10px 14px;font-weight:600;color:#94a3b8;">Car Model</td><td style="padding:10px 14px;color:#e2e8f0;">${carModel}</td></tr>
+            <tr><td style="padding:10px 14px;font-weight:600;color:#94a3b8;">Year</td><td style="padding:10px 14px;color:#e2e8f0;">${carYear}</td></tr>
+          </table>
+
+          <h3 style="color:#f59e0b;font-size:14px;text-transform:uppercase;letter-spacing:1px;margin:0 0 12px;">Part & Selected Option</h3>
+          <table style="border-collapse:collapse;width:100%;margin-bottom:24px;">
+            <tr style="background:#1a2235;"><td style="padding:10px 14px;font-weight:600;color:#94a3b8;width:40%;">Part Name</td><td style="padding:10px 14px;color:#e2e8f0;">${partName}</td></tr>
+            <tr><td style="padding:10px 14px;font-weight:600;color:#94a3b8;">Part Category</td><td style="padding:10px 14px;color:#e2e8f0;">${partCategory}</td></tr>
+            <tr style="background:#1a2235;"><td style="padding:10px 14px;font-weight:600;color:#94a3b8;">Supplier</td><td style="padding:10px 14px;color:#e2e8f0;">${supplierName || 'N/A'}</td></tr>
+            <tr><td style="padding:10px 14px;font-weight:600;color:#94a3b8;">Selected Option</td><td style="padding:10px 14px;color:#f59e0b;font-weight:700;">Option ${option.option_number}</td></tr>
+            <tr style="background:#1a2235;"><td style="padding:10px 14px;font-weight:600;color:#94a3b8;">Price (Admin)</td><td style="padding:10px 14px;color:#f59e0b;font-weight:700;">Rs. ${Number(option.admin_price).toLocaleString('si-LK')}</td></tr>
+            <tr><td style="padding:10px 14px;font-weight:600;color:#94a3b8;">Delivery</td><td style="padding:10px 14px;color:#e2e8f0;">${option.delivery_days} day${option.delivery_days !== 1 ? 's' : ''}</td></tr>
+          </table>
+
+          <p style="color:#64748b;font-size:13px;border-top:1px solid #1a2235;padding-top:16px;margin-top:8px;">This is an automated notification. The ticket has been marked as closed in the dashboard.</p>
+        </div>
+      </div>
+    `,
+  });
+
+  if (result.error) {
+    console.error('[email] Admin selection notification error:', JSON.stringify(result.error));
+  } else {
+    console.log(`[email] Admin selection notification sent → ${ADMIN_EMAIL}`);
+  }
+}
+
 export async function sendContactFormEmail(data: {
   name: string;
   email: string;

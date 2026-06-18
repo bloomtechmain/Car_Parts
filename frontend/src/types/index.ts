@@ -51,6 +51,7 @@ export interface TicketDetail extends Ticket {
   customer?: Customer;
   replies: SupplierReply[];
   my_reply?: SupplierReply | null;
+  selected_reply_id?: number | null;
 }
 
 export interface FindPartsFormData {

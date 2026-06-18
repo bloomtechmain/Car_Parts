@@ -59,7 +59,7 @@ export default function Step3ContactInfo({ defaultValues, onSubmit, onBack, load
 
         <div>
           <label className="block text-sm font-medium text-slate-300 mb-1.5">Phone Number *</label>
-          <input {...register('phone')} type="tel" placeholder="+971 50 000 0000" className="input-base" />
+          <input {...register('phone')} type="tel" placeholder="+94 77 000 0000" className="input-base" />
           {errors.phone && <p className="text-red-400 text-xs mt-1">{errors.phone.message}</p>}
         </div>
 

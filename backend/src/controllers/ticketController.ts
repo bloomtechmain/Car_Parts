@@ -7,6 +7,7 @@ import {
   sendContactFormEmail,
   sendOrderConfirmationToCustomer,
   sendSupplierOrderNotification,
+  sendAdminSelectionNotification,
 } from '../services/emailService';
 import { sendOrderConfirmationSMS } from '../services/smsService';
 import pool from '../config/db';
@@ -190,8 +191,8 @@ export async function confirmSelection(req: Request, res: Response): Promise<voi
   const optionNumber = repliesResult.rows.findIndex((r) => r.id === parsed.data.reply_id) + 1;
 
   await pool.query(
-    `UPDATE tickets SET status = 'closed', options_token = NULL WHERE id = $1`,
-    [ticket.id]
+    `UPDATE tickets SET status = 'closed', options_token = NULL, selected_reply_id = $2 WHERE id = $1`,
+    [ticket.id, parsed.data.reply_id]
   );
 
   res.json({ message: 'Order confirmed successfully', option_number: optionNumber });
@@ -216,6 +217,20 @@ export async function confirmSelection(req: Request, res: Response): Promise<voi
   Promise.allSettled([
     sendOrderConfirmationToCustomer(ticketData, ticket.customer_email, ticket.full_name, option),
     sendSupplierOrderNotification(replyRow.supplier_email, replyRow.company_name, ticketData, replyRow.delivery_days),
+    sendAdminSelectionNotification({
+      customerName: ticket.full_name,
+      customerEmail: ticket.customer_email,
+      customerPhone: ticket.customer_phone || '',
+      ticketNumber: ticket.ticket_number,
+      ticketId: ticket.id,
+      carMake: ticket.car_make,
+      carModel: ticket.car_model,
+      carYear: ticket.car_year,
+      partName: ticket.part_name,
+      partCategory: ticket.part_category,
+      supplierName: replyRow.company_name,
+      option,
+    }),
     ticket.customer_phone
       ? sendOrderConfirmationSMS(ticket.customer_phone, {
           partName: ticket.part_name,

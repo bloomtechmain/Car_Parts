@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Car, Wrench, User, DollarSign, FileText, Image as ImageIcon, Clock, Send, Check } from 'lucide-react';
+import { X, Car, Wrench, User, DollarSign, FileText, Image as ImageIcon, Clock, Send, Check, CheckCircle2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
 import type { TicketDetail } from '../../types';
@@ -192,8 +192,16 @@ export default function TicketDetailModal({ ticketId, isAdmin, inline, onClose, 
                     <FileText size={14} /> Supplier Replies ({ticket.replies.length})
                   </h4>
                   <div className="space-y-3">
-                    {ticket.replies.map((reply) => (
-                      <div key={reply.id} className="bg-navy-card border border-navy-border rounded-xl p-4">
+                    {ticket.replies.map((reply) => {
+                      const isSelected = isAdmin && ticket.selected_reply_id != null && reply.id === ticket.selected_reply_id;
+                      return (
+                      <div key={reply.id} className={`rounded-xl p-4 ${isSelected ? 'bg-green-950/40 border-2 border-green-500' : 'bg-navy-card border border-navy-border'}`}>
+                        {isSelected && (
+                          <div className="flex items-center gap-2 mb-3 px-3 py-1.5 bg-green-500/20 border border-green-500/40 rounded-lg w-fit">
+                            <CheckCircle2 size={14} className="text-green-400" />
+                            <span className="text-green-400 text-xs font-semibold uppercase tracking-wide">Customer Selected This Option</span>
+                          </div>
+                        )}
                         {isAdmin && reply.company_name && (
                           <p className="text-gold text-sm font-semibold mb-2">{reply.company_name}</p>
                         )}
@@ -256,7 +264,8 @@ export default function TicketDetailModal({ ticketId, isAdmin, inline, onClose, 
                           </div>
                         )}
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
 
                   {/* Send Options to Customer button */}
