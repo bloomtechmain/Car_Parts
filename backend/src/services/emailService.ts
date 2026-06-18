@@ -76,7 +76,7 @@ export async function sendTicketToSuppliers(
           </div>
           <div style="padding:32px;">
             <p style="color:#94a3b8;margin-bottom:8px;">Hello ${s.company_name || 'Supplier'},</p>
-            <p style="color:#e2e8f0;line-height:1.6;">A new part request has been submitted. If you have this part available, please log in to your supplier dashboard and submit your quote with your price and estimated delivery time.</p>
+            <p style="color:#e2e8f0;line-height:1.6;">A new part request <strong style="color:#f59e0b;">Ticket #${ticket.ticket_number}</strong> has been submitted for a <strong style="color:#f59e0b;">${ticket.car_year} ${ticket.car_make} ${ticket.car_model}</strong>. If you have the <strong>${ticket.part_name}</strong> available, please log in to your supplier dashboard and submit your quote with your price and estimated delivery time.</p>
             ${partDetailsTable(ticket)}
             <div style="text-align:center;margin:32px 0;">
               <a href="${FRONTEND_URL}/dashboard/supplier" style="background:#f59e0b;color:#0a0f1e;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:700;font-size:16px;">View & Reply to Ticket</a>
@@ -269,7 +269,7 @@ export async function sendSupplierOrderNotification(
         </div>
         <div style="padding:32px;">
           <p style="color:#94a3b8;">Hello ${companyName || 'Supplier'},</p>
-          <p style="color:#e2e8f0;line-height:1.6;">A customer has selected your quote for the following part request. Please prepare for delivery within your stated timeframe of <strong>${delivery_days} day${delivery_days !== 1 ? 's' : ''}</strong>.</p>
+          <p style="color:#e2e8f0;line-height:1.6;">A customer has selected your quote for <strong style="color:#f59e0b;">${ticket.part_name}</strong> — <strong style="color:#f59e0b;">${ticket.car_year} ${ticket.car_make} ${ticket.car_model}</strong> (Ticket <strong style="color:#f59e0b;">#${ticket.ticket_number}</strong>). Please prepare for delivery within your stated timeframe of <strong>${delivery_days} day${delivery_days !== 1 ? 's' : ''}</strong>.</p>
           ${partDetailsTable(ticket)}
           <p style="color:#64748b;font-size:13px;border-top:1px solid #1a2235;padding-top:16px;margin-top:16px;">Our team will coordinate the delivery details with you. Do not contact the customer directly — all arrangements go through CarParts Finder.</p>
         </div>
