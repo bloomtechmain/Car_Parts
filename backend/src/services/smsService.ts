@@ -47,8 +47,9 @@ export async function sendOrderConfirmationSMS(
 ): Promise<void> {
   const priceText = `Rs.${Number(data.adminPrice).toLocaleString('si-LK')}`;
   const message =
-    `CarParts Finder: Your order is confirmed! Option ${data.optionNumber} selected for your ${data.partName} ` +
-    `(${data.ticketNumber}). Price: ${priceText}. Delivery: ${data.deliveryDays} day${data.deliveryDays !== 1 ? 's' : ''}. Our team will be in touch.`;
+    `CarParts Finder: Great choice! Option ${data.optionNumber} for your ${data.partName} ` +
+    `(${data.ticketNumber}) is reserved. Amount due: ${priceText}. ` +
+    `Please complete your payment to finalise your order. Delivery: ${data.deliveryDays} day${data.deliveryDays !== 1 ? 's' : ''} after payment.`;
 
   await sendSMS(phone, message);
 }
