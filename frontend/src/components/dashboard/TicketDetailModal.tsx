@@ -24,6 +24,7 @@ export default function TicketDetailModal({ ticketId, isAdmin, inline, onClose, 
   const [savingPrice, setSavingPrice] = useState<Record<number, boolean>>({});
   const [savedPrice, setSavedPrice] = useState<Record<number, boolean>>({});
   const [sendingOptions, setSendingOptions] = useState(false);
+  const [selectedReplies, setSelectedReplies] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     const load = async () => {
@@ -80,7 +81,9 @@ export default function TicketDetailModal({ ticketId, isAdmin, inline, onClose, 
   const handleSendOptions = async () => {
     setSendingOptions(true);
     try {
-      const res = await api.post(`/api/admin/tickets/${ticketId}/send-options`);
+      const res = await api.post(`/api/admin/tickets/${ticketId}/send-options`, {
+        reply_ids: Array.from(selectedReplies),
+      });
       toast.success(`Options email sent to customer (${res.data.options_count} option${res.data.options_count !== 1 ? 's' : ''})`);
     } catch (err: unknown) {
       const msg = err && typeof err === 'object' && 'response' in err
@@ -92,7 +95,10 @@ export default function TicketDetailModal({ ticketId, isAdmin, inline, onClose, 
     }
   };
 
-  const repliesWithAdminPrice = ticket?.replies?.filter((r) => r.admin_price !== null) ?? [];
+  const selectedWithPrice = Array.from(selectedReplies).filter(
+    (id) => ticket?.replies.find((r) => r.id === id)?.admin_price !== null
+  );
+  const canSend = selectedReplies.size > 0 && selectedWithPrice.length === selectedReplies.size;
 
   const content = (
     <div className={inline ? 'overflow-y-auto max-h-[70vh]' : 'bg-navy-light border border-navy-border rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto'} onClick={inline ? undefined : (e) => e.stopPropagation()}>
@@ -202,6 +208,24 @@ export default function TicketDetailModal({ ticketId, isAdmin, inline, onClose, 
                             <span className="text-green-400 text-xs font-semibold uppercase tracking-wide">Customer Selected This Option</span>
                           </div>
                         )}
+                          {isAdmin && (
+                          <div className="flex items-center gap-2 mb-3">
+                            <input
+                              type="checkbox"
+                              id={`select-reply-${reply.id}`}
+                              checked={selectedReplies.has(reply.id)}
+                              onChange={() => setSelectedReplies((prev) => {
+                                const next = new Set(prev);
+                                if (next.has(reply.id)) next.delete(reply.id); else next.add(reply.id);
+                                return next;
+                              })}
+                              className="w-4 h-4 cursor-pointer accent-yellow-500"
+                            />
+                            <label htmlFor={`select-reply-${reply.id}`} className="text-xs text-slate-400 cursor-pointer select-none">
+                              Include in customer email
+                            </label>
+                          </div>
+                        )}
                         {isAdmin && reply.company_name && (
                           <p className="text-gold text-sm font-semibold mb-2">{reply.company_name}</p>
                         )}
@@ -230,10 +254,10 @@ export default function TicketDetailModal({ ticketId, isAdmin, inline, onClose, 
                           </a>
                         )}
 
-                        {/* Admin price input */}
-                        {isAdmin && (
+                        {/* Admin price input — only visible when this reply is selected */}
+                        {isAdmin && selectedReplies.has(reply.id) && (
                           <div className="mt-3 pt-3 border-t border-navy-border">
-                            <p className="text-xs text-slate-500 mb-2 uppercase tracking-wide">Admin Price (sent to customer)</p>
+                            <p className="text-xs text-slate-500 mb-2 uppercase tracking-wide">Your Price (sent to customer)</p>
                             <div className="flex items-center gap-2">
                               <div className="relative flex-1">
                                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">Rs.</span>
@@ -258,10 +282,15 @@ export default function TicketDetailModal({ ticketId, isAdmin, inline, onClose, 
                             </div>
                             {reply.admin_price !== null && (
                               <p className="text-green-400 text-xs mt-1.5">
-                                Current: {formatPrice(reply.admin_price)}
+                                Saved: {formatPrice(reply.admin_price)}
                               </p>
                             )}
                           </div>
+                        )}
+                        {isAdmin && !selectedReplies.has(reply.id) && reply.admin_price !== null && (
+                          <p className="text-slate-600 text-xs mt-2 pt-2 border-t border-navy-border">
+                            Previously set: {formatPrice(reply.admin_price)}
+                          </p>
                         )}
                       </div>
                       );
@@ -273,14 +302,16 @@ export default function TicketDetailModal({ ticketId, isAdmin, inline, onClose, 
                     <div className="mt-4 p-4 bg-navy-card border border-gold/30 rounded-xl">
                       <p className="text-sm text-slate-300 mb-1 font-medium">Send Options to Customer</p>
                       <p className="text-xs text-slate-500 mb-3">
-                        {repliesWithAdminPrice.length === 0
-                          ? 'Set an admin price on at least one reply before sending.'
-                          : `${repliesWithAdminPrice.length} option${repliesWithAdminPrice.length !== 1 ? 's' : ''} with admin price ready. Customer will not see supplier names.`}
+                        {selectedReplies.size === 0
+                          ? 'Check the options you want to include, then set and save a price for each.'
+                          : canSend
+                            ? `${selectedReplies.size} option${selectedReplies.size !== 1 ? 's' : ''} selected and priced — ready to send. Customer will not see supplier names.`
+                            : 'Save a price for all selected options before sending.'}
                       </p>
                       <Button
                         onClick={handleSendOptions}
                         loading={sendingOptions}
-                        disabled={repliesWithAdminPrice.length === 0}
+                        disabled={!canSend}
                       >
                         <Send size={14} className="mr-2" />
                         Send Options Email to Customer

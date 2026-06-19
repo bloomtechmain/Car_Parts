@@ -160,6 +160,7 @@ export async function sendOptionsEmail(
         <p style="color:#f59e0b;font-size:26px;font-weight:700;margin:0 0 6px;">Rs. ${Number(opt.admin_price).toLocaleString('si-LK')}</p>
         <p style="color:#94a3b8;font-size:14px;margin:0 0 16px;">Estimated delivery: <strong style="color:#e2e8f0;">${opt.delivery_days} day${opt.delivery_days !== 1 ? 's' : ''}</strong></p>
         <a href="${selectUrl}" style="display:inline-block;background:#f59e0b;color:#0a0f1e;padding:10px 24px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;">Select This Option</a>
+        <span style="display:inline-block;background:#0f172a;color:#475569;padding:10px 24px;border-radius:8px;font-weight:700;font-size:14px;margin-left:10px;border:1px solid #2d3f57;cursor:default;">Pay Online (Coming Soon)</span>
       </div>
     `;
   }).join('');

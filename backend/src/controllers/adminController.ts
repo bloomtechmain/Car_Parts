@@ -102,6 +102,14 @@ export async function updateReplyAdminPrice(req: AuthRequest, res: Response): Pr
 export async function sendOptionsToCustomer(req: AuthRequest, res: Response): Promise<void> {
   const { id } = req.params;
 
+  const bodySchema = z.object({ reply_ids: z.array(z.number().int().positive()).min(1) });
+  const parsed = bodySchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: 'Please select at least one supplier option to send.' });
+    return;
+  }
+  const { reply_ids } = parsed.data;
+
   const ticketResult = await pool.query(
     'SELECT * FROM tickets WHERE id = $1',
     [id]
@@ -122,13 +130,13 @@ export async function sendOptionsToCustomer(req: AuthRequest, res: Response): Pr
 
   const repliesResult = await pool.query(
     `SELECT id, admin_price, delivery_days FROM supplier_replies
-     WHERE ticket_id = $1 AND admin_price IS NOT NULL
+     WHERE ticket_id = $1 AND id = ANY($2::int[]) AND admin_price IS NOT NULL
      ORDER BY created_at ASC`,
-    [id]
+    [id, reply_ids]
   );
 
   if (repliesResult.rows.length === 0) {
-    res.status(400).json({ error: 'No replies with admin price set. Please set prices before sending options.' });
+    res.status(400).json({ error: 'None of the selected options have an admin price set. Please save prices before sending.' });
     return;
   }
 
