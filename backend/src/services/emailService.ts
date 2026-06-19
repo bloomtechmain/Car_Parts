@@ -212,34 +212,36 @@ export async function sendOrderConfirmationToCustomer(
   const result = await resend.emails.send({
     from: FROM,
     to,
-    subject: `${devNote}Order Confirmed — Ticket ${ticket.ticket_number}`,
+    subject: `${devNote}Action Required: Complete Your Payment — Ticket ${ticket.ticket_number}`,
     html: `
       <div style="font-family:Inter,sans-serif;max-width:600px;margin:0 auto;background:#0a0f1e;color:#ffffff;border-radius:12px;overflow:hidden;">
         ${devNote ? `<div style="background:#7c3aed;padding:10px 20px;font-size:12px;color:#fff;">🔧 DEV MODE — Intended for customer: ${customerEmail}</div>` : ''}
-        <div style="background:#22c55e;padding:24px 32px;">
-          <h1 style="margin:0;color:#ffffff;font-size:22px;">Order Confirmed!</h1>
-          <p style="margin:4px 0 0;color:#ffffff;opacity:0.9;">Your selection has been placed successfully</p>
+        <div style="background:#f59e0b;padding:24px 32px;">
+          <h1 style="margin:0;color:#0a0f1e;font-size:22px;">Great Choice! Now Complete Your Payment</h1>
+          <p style="margin:4px 0 0;color:#0a0f1e;opacity:0.8;">Your order is reserved — payment is needed to confirm it</p>
         </div>
         <div style="padding:32px;">
           <p style="color:#94a3b8;">Hello ${customerName},</p>
-          <p style="color:#e2e8f0;line-height:1.6;">Thank you for your order! Your selection for <strong>${ticket.part_name}</strong> (${ticket.car_year} ${ticket.car_make} ${ticket.car_model}) has been confirmed.</p>
+          <p style="color:#e2e8f0;line-height:1.6;">You have selected your option for <strong>${ticket.part_name}</strong> (${ticket.car_year} ${ticket.car_make} ${ticket.car_model}). <strong style="color:#f59e0b;">Please complete your payment to finalise your order.</strong></p>
 
-          <div style="background:#1a2235;border:1px solid #22c55e;border-radius:10px;padding:20px;margin:24px 0;">
+          <div style="background:#1a2235;border:1px solid #f59e0b;border-radius:10px;padding:20px;margin:24px 0;">
             <p style="color:#94a3b8;margin:0 0 4px;font-size:12px;">TICKET NUMBER</p>
             <p style="color:#f59e0b;font-size:18px;font-weight:700;margin:0 0 16px;letter-spacing:2px;">${ticket.ticket_number}</p>
             <p style="color:#94a3b8;margin:0 0 4px;font-size:12px;">SELECTED OPTION</p>
             <p style="color:#e2e8f0;font-weight:600;margin:0 0 12px;">Option ${option.option_number}</p>
-            <p style="color:#94a3b8;margin:0 0 4px;font-size:12px;">PRICE</p>
-            <p style="color:#f59e0b;font-size:24px;font-weight:700;margin:0 0 12px;">Rs. ${Number(option.admin_price).toLocaleString('si-LK')}</p>
+            <p style="color:#94a3b8;margin:0 0 4px;font-size:12px;">AMOUNT DUE</p>
+            <p style="color:#f59e0b;font-size:28px;font-weight:700;margin:0 0 12px;">Rs. ${Number(option.admin_price).toLocaleString('si-LK')}</p>
             <p style="color:#94a3b8;margin:0 0 4px;font-size:12px;">ESTIMATED DELIVERY</p>
-            <p style="color:#e2e8f0;font-weight:600;margin:0;">${option.delivery_days} day${option.delivery_days !== 1 ? 's' : ''}</p>
+            <p style="color:#e2e8f0;font-weight:600;margin:0;">${option.delivery_days} day${option.delivery_days !== 1 ? 's' : ''} after payment</p>
           </div>
 
-          <div style="text-align:center;margin:24px 0;">
-            <span style="display:inline-block;background:#0f172a;color:#475569;padding:12px 32px;border-radius:8px;font-weight:700;font-size:15px;border:1px solid #2d3f57;cursor:default;">Pay Online (Coming Soon)</span>
+          <p style="color:#e2e8f0;font-size:14px;text-align:center;margin:0 0 16px;">Your order will only be processed once payment is received.</p>
+
+          <div style="text-align:center;margin:8px 0 28px;">
+            <span style="display:inline-block;background:#f59e0b;color:#0a0f1e;padding:14px 48px;border-radius:8px;font-weight:700;font-size:16px;cursor:default;letter-spacing:0.5px;">PAY ONLINE</span>
           </div>
 
-          <p style="color:#64748b;font-size:13px;border-top:1px solid #1a2235;padding-top:16px;margin-top:8px;">Our team will be in touch with further delivery details. Thank you for choosing CarParts Finder!</p>
+          <p style="color:#64748b;font-size:13px;border-top:1px solid #1a2235;padding-top:16px;margin-top:8px;">Once payment is confirmed, our team will be in touch with delivery details. Thank you for choosing CarParts Finder!</p>
         </div>
       </div>
     `,
