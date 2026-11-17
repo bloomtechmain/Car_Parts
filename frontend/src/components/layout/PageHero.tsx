@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion, useScroll, useTransform } from 'framer-motion';
 import { MaskLines } from '../ui/Reveal';
 import { cn } from '../../utils/cn';
@@ -41,6 +41,18 @@ export default function PageHero({
   const photoY = useTransform(scrollYProgress, [0, 1], ['0%', '18%']);
   const titleY = useTransform(scrollYProgress, [0, 1], ['0%', '30%']);
 
+  // On phones the photo stacks under the title, so the title's parallax drift
+  // would slide the intro text over it. Keep the drift for the side-by-side layout only.
+  const [isDesktop, setIsDesktop] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches,
+  );
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 1024px)');
+    const onChange = () => setIsDesktop(mq.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+
   return (
     <section ref={ref} className={cn('relative overflow-hidden bg-ink pt-[72px]', className)}>
       {layout === 'full' && (
@@ -63,7 +75,7 @@ export default function PageHero({
           layout === 'full' ? 'min-h-[86svh] items-end' : compact ? 'min-h-[56svh] items-end' : 'min-h-[72svh] items-end',
         )}
       >
-        <motion.div style={{ y: titleY }} className={layout === 'split' ? 'lg:col-span-7' : 'lg:col-span-8'}>
+        <motion.div style={{ y: layout === 'split' && !isDesktop ? 0 : titleY }} className={layout === 'split' ? 'lg:col-span-7' : 'lg:col-span-8'}>
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}

@@ -151,7 +151,7 @@ export default function FAQPage() {
                 <>
                   <span className="label text-[10px] text-paper-ink/50">{c.k}</span>
                   <span className="mt-6 flex items-end justify-between gap-4">
-                    <span className="text-xl font-medium sm:text-2xl">{c.v}</span>
+                    <span className="min-w-0 text-xl font-medium [overflow-wrap:anywhere] sm:text-2xl">{c.v}</span>
                     <ArrowUpRight size={22} className="shrink-0 transition-transform duration-300 group-hover:-translate-y-1 group-hover:translate-x-1" />
                   </span>
                 </>
