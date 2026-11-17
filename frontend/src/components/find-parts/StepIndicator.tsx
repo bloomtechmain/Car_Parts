@@ -1,5 +1,4 @@
 import { motion } from 'framer-motion';
-import { Check } from 'lucide-react';
 import { cn } from '../../utils/cn';
 
 interface Props {
@@ -7,48 +6,41 @@ interface Props {
   steps: string[];
 }
 
+/* Three segments that fill like a fuel gauge */
 export default function StepIndicator({ currentStep, steps }: Props) {
   return (
-    <div className="flex items-center justify-center mb-10">
-      {steps.map((label, i) => {
-        const step = i + 1;
-        const done = currentStep > step;
-        const active = currentStep === step;
-        return (
-          <div key={i} className="flex items-center">
-            <div className="flex flex-col items-center">
-              <motion.div
-                animate={{
-                  backgroundColor: done ? '#f59e0b' : active ? '#f59e0b' : '#1a2235',
-                  borderColor: done || active ? '#f59e0b' : '#1e2d45',
-                  scale: active ? 1.1 : 1,
-                }}
-                transition={{ duration: 0.3 }}
-                className="w-10 h-10 rounded-full border-2 flex items-center justify-center font-bold text-sm"
-              >
-                {done ? (
-                  <Check size={16} className="text-navy" />
-                ) : (
-                  <span className={active ? 'text-navy' : 'text-slate-500'}>{step}</span>
-                )}
-              </motion.div>
-              <span className={cn('text-xs mt-1.5 font-medium hidden sm:block', active ? 'text-gold' : done ? 'text-gold/60' : 'text-slate-500')}>
-                {label}
-              </span>
-            </div>
-            {i < steps.length - 1 && (
-              <div className="w-16 sm:w-24 h-px mx-2 sm:mx-3 mb-4 relative overflow-hidden bg-navy-border">
+    <div className="mb-10">
+      <div className="mb-3 flex items-baseline justify-between">
+        <span className="label text-steel">
+          Step <span className="text-bone">{currentStep}</span> of {steps.length}
+        </span>
+        <span className="label text-signal">{steps[currentStep - 1]}</span>
+      </div>
+      <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${steps.length}, 1fr)` }}>
+        {steps.map((label, i) => {
+          const step = i + 1;
+          return (
+            <div key={label}>
+              <div className="h-1 overflow-hidden bg-ink-line">
                 <motion.div
-                  className="absolute inset-y-0 left-0 bg-gold"
-                  initial={{ width: '0%' }}
-                  animate={{ width: currentStep > step ? '100%' : '0%' }}
-                  transition={{ duration: 0.4 }}
+                  className="h-full bg-signal"
+                  initial={false}
+                  animate={{ width: currentStep >= step ? '100%' : '0%' }}
+                  transition={{ duration: 0.6, ease: [0.76, 0, 0.24, 1] }}
                 />
               </div>
-            )}
-          </div>
-        );
-      })}
+              <p
+                className={cn(
+                  'mt-2 hidden text-xs sm:block',
+                  currentStep === step ? 'text-bone' : currentStep > step ? 'text-steel' : 'text-steel/50',
+                )}
+              >
+                {String(step).padStart(2, '0')} {label}
+              </p>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

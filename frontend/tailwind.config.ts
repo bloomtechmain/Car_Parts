@@ -1,37 +1,77 @@
 import type { Config } from 'tailwindcss';
 
+/*
+ * Palette — "workshop manual"
+ *   ink    : warm near-black, the page
+ *   paper  : manual-page off-white, used for light sections
+ *   bone   : text on ink
+ *   signal : the one accent — safety orange
+ *
+ * `navy` and `gold` are kept as aliases so the supplier / admin dashboards
+ * (which were written against those names) pick up the new palette as-is.
+ */
+const ink = {
+  DEFAULT: '#0f0e0c',
+  2: '#161511',
+  3: '#1d1b17',
+  line: '#2d2a24',
+};
+
+const signal = {
+  DEFAULT: '#ff5a1f',
+  light: '#ff7a45',
+  dark: '#e2450c',
+};
+
 const config: Config = {
   content: ['./index.html', './src/**/*.{ts,tsx}'],
   theme: {
     extend: {
       colors: {
+        ink,
+        paper: {
+          DEFAULT: '#ebe6db',
+          2: '#e0d9cb',
+          line: '#c9c0ae',
+          ink: '#24211c',
+        },
+        bone: '#e9e3d6',
+        steel: '#8f897d',
+        signal,
         navy: {
-          DEFAULT: '#0a0f1e',
-          light: '#111827',
-          card: '#1a2235',
-          border: '#1e2d45',
+          DEFAULT: ink.DEFAULT,
+          light: ink[2],
+          card: ink[3],
+          border: ink.line,
         },
-        gold: {
-          DEFAULT: '#f59e0b',
-          light: '#fbbf24',
-          dark: '#d97706',
-        },
+        gold: signal,
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
+        sans: ['"IBM Plex Sans"', 'system-ui', 'sans-serif'],
+        display: ['"Big Shoulders Display"', 'Impact', 'sans-serif'],
+        mono: ['"IBM Plex Mono"', 'ui-monospace', 'monospace'],
       },
-      animation: {
-        float: 'float 6s ease-in-out infinite',
-        'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+      letterSpacing: {
+        label: '0.18em',
       },
       keyframes: {
-        float: {
+        marquee: {
+          from: { transform: 'translateX(0)' },
+          to: { transform: 'translateX(-50%)' },
+        },
+        piston: {
           '0%, 100%': { transform: 'translateY(0)' },
-          '50%': { transform: 'translateY(-12px)' },
+          '50%': { transform: 'translateY(9px)' },
+        },
+        blink: {
+          '0%, 100%': { opacity: '1' },
+          '50%': { opacity: '0.2' },
         },
       },
-      backgroundImage: {
-        'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
+      animation: {
+        marquee: 'marquee 48s linear infinite',
+        'marquee-slow': 'marquee 80s linear infinite',
+        blink: 'blink 1.6s steps(2, start) infinite',
       },
     },
   },
@@ -39,4 +79,3 @@ const config: Config = {
 };
 
 export default config;
-

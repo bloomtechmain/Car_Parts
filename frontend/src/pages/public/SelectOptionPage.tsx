@@ -1,7 +1,11 @@
 import { useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { CheckCircle, XCircle, Car, Wrench, DollarSign, Clock, Loader2 } from 'lucide-react';
+import { useSearchParams, Link } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import api from '../../services/api';
+import Logo from '../../components/ui/Logo';
+import Button from '../../components/ui/Button';
+import PistonLoader from '../../components/ui/PistonLoader';
+import { PHOTOS } from '../../constants/brand';
 
 interface OptionPreview {
   ticket_number: string;
@@ -20,21 +24,46 @@ interface OptionPreview {
 
 type PageState = 'loading' | 'preview' | 'confirming' | 'confirmed' | 'error' | 'already_done';
 
+function Row({ k, v }: { k: string; v: React.ReactNode }) {
+  return (
+    <div className="flex items-baseline gap-2 py-2.5 text-sm">
+      <dt className="label shrink-0 text-[10px] text-paper-ink/50">{k}</dt>
+      <span className="mb-1 flex-1 border-b border-dotted border-paper-line" />
+      <dd className="text-right font-medium">{v}</dd>
+    </div>
+  );
+}
+
+function Message({ tone, kicker, title, body }: { tone: 'good' | 'bad'; kicker: string; title: string; body: string }) {
+  return (
+    <motion.div
+      key={title}
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="text-left"
+    >
+      <p className={`label mb-5 ${tone === 'good' ? 'text-signal' : 'text-red-400'}`}>{kicker}</p>
+      <h1 className="display mb-5 text-[clamp(2.8rem,8vw,4.6rem)] text-bone">{title}</h1>
+      <p className="mb-10 max-w-sm leading-relaxed text-steel">{body}</p>
+      <Link to="/" tabIndex={-1}>
+        <Button variant="secondary">Go to the website</Button>
+      </Link>
+    </motion.div>
+  );
+}
+
 export default function SelectOptionPage() {
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token') ?? '';
   const reply = searchParams.get('reply') ?? '';
 
-  const [state, setState] = useState<PageState>('loading');
+  const incomplete = !token || !reply;
+  const [state, setState] = useState<PageState>(incomplete ? 'error' : 'loading');
   const [preview, setPreview] = useState<OptionPreview | null>(null);
-  const [errorMsg, setErrorMsg] = useState('');
+  const [errorMsg, setErrorMsg] = useState(incomplete ? 'This link is invalid or incomplete.' : '');
 
   useEffect(() => {
-    if (!token || !reply) {
-      setErrorMsg('This link is invalid or incomplete.');
-      setState('error');
-      return;
-    }
+    if (incomplete) return;
 
     api.get(`/api/tickets/select-option?token=${encodeURIComponent(token)}&reply=${encodeURIComponent(reply)}`)
       .then((res) => {
@@ -50,7 +79,7 @@ export default function SelectOptionPage() {
           setState('error');
         }
       });
-  }, [token, reply]);
+  }, [token, reply, incomplete]);
 
   const handleConfirm = async () => {
     setState('confirming');
@@ -72,124 +101,98 @@ export default function SelectOptionPage() {
   };
 
   return (
-    <div className="min-h-screen bg-navy flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        {/* Loading */}
-        {state === 'loading' && (
-          <div className="bg-navy-light border border-navy-border rounded-2xl p-10 text-center">
-            <Loader2 size={40} className="text-gold animate-spin mx-auto mb-4" />
-            <p className="text-slate-400">Loading your option details...</p>
+    <div className="relative min-h-screen overflow-hidden bg-ink">
+      <div
+        className="absolute inset-0 bg-cover bg-center opacity-15 grayscale"
+        style={{ backgroundImage: `url(${PHOTOS.garageNight})` }}
+      />
+      <div className="absolute inset-0 bg-gradient-to-b from-ink/70 to-ink" />
+
+      <div className="shell relative flex min-h-screen flex-col py-8">
+        <Logo />
+
+        <div className="flex flex-1 items-center justify-center py-12">
+          <div className="w-full max-w-md">
+            <AnimatePresence mode="wait">
+              {state === 'loading' && (
+                <motion.div key="loading" exit={{ opacity: 0 }} className="flex flex-col items-start gap-5">
+                  <PistonLoader size="lg" />
+                  <p className="label text-steel">Pulling up your option…</p>
+                </motion.div>
+              )}
+
+              {(state === 'preview' || state === 'confirming') && preview && (
+                <motion.div
+                  key="preview"
+                  initial={{ opacity: 0, y: 30, rotate: 1.5 }}
+                  animate={{ opacity: 1, y: 0, rotate: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+                >
+                  <p className="label mb-4 text-signal">Option {preview.option.option_number} — your pick</p>
+                  <h1 className="display mb-8 text-[clamp(2.8rem,8vw,4.4rem)] text-bone">Confirm your order.</h1>
+
+                  <div className="bg-paper text-paper-ink">
+                    <div className="flex items-center justify-between border-b border-dashed border-paper-line px-5 py-4">
+                      <span className="label text-[10px] text-paper-ink/60">Ticket</span>
+                      <span className="font-mono text-sm tracking-widest">{preview.ticket_number}</span>
+                    </div>
+                    <dl className="px-5 py-2">
+                      <Row k="Vehicle" v={`${preview.car_year} ${preview.car_make} ${preview.car_model}`} />
+                      <Row k="Part" v={preview.part_name} />
+                      <Row k="Section" v={preview.part_category} />
+                      <Row
+                        k="Delivery"
+                        v={`${preview.option.delivery_days} day${preview.option.delivery_days !== 1 ? 's' : ''}`}
+                      />
+                    </dl>
+                    <div className="flex items-end justify-between border-t border-paper-line px-5 py-5">
+                      <span className="label text-[10px] text-paper-ink/60">Total</span>
+                      <span className="font-display text-5xl font-extrabold leading-none">
+                        Rs. {Number(preview.option.admin_price).toLocaleString('si-LK')}
+                      </span>
+                    </div>
+                  </div>
+
+                  <Button
+                    onClick={handleConfirm}
+                    loading={state === 'confirming'}
+                    size="lg"
+                    arrow
+                    className="mt-4 w-full"
+                  >
+                    {state === 'confirming' ? 'Confirming' : 'Confirm & place order'}
+                  </Button>
+                  <p className="mt-4 text-xs leading-relaxed text-steel">
+                    By confirming, your order is placed and you’ll receive a confirmation email and SMS.
+                  </p>
+                </motion.div>
+              )}
+
+              {state === 'confirmed' && (
+                <Message
+                  tone="good"
+                  kicker="Order placed"
+                  title="Done. It’s yours."
+                  body="Your order has been placed. A confirmation email and SMS are on their way, and our team will be in touch with delivery details."
+                />
+              )}
+
+              {state === 'already_done' && (
+                <Message
+                  tone="good"
+                  kicker="Already confirmed"
+                  title="You’re all set."
+                  body="An option has already been selected for this ticket, so your order is confirmed. Nothing else to do."
+                />
+              )}
+
+              {state === 'error' && (
+                <Message tone="bad" kicker="Link problem" title="That link didn’t work." body={errorMsg} />
+              )}
+            </AnimatePresence>
           </div>
-        )}
-
-        {/* Preview / Confirm */}
-        {(state === 'preview' || state === 'confirming') && preview && (
-          <div className="bg-navy-light border border-navy-border rounded-2xl overflow-hidden">
-            <div className="bg-gold px-6 py-5">
-              <h1 className="text-navy font-bold text-xl">Confirm Your Selection</h1>
-              <p className="text-navy/70 text-sm mt-1">Review the details before placing your order</p>
-            </div>
-
-            <div className="p-6 space-y-4">
-              {/* Ticket */}
-              <div className="text-center">
-                <p className="text-slate-500 text-xs mb-1">TICKET NUMBER</p>
-                <p className="text-gold font-mono font-bold text-xl tracking-widest">{preview.ticket_number}</p>
-              </div>
-
-              {/* Vehicle */}
-              <div className="bg-navy-card border border-navy-border rounded-xl p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <Car size={14} className="text-slate-400" />
-                  <span className="text-slate-400 text-xs uppercase tracking-wide font-semibold">Vehicle</span>
-                </div>
-                <p className="text-white font-medium">{preview.car_year} {preview.car_make} {preview.car_model}</p>
-              </div>
-
-              {/* Part */}
-              <div className="bg-navy-card border border-navy-border rounded-xl p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <Wrench size={14} className="text-slate-400" />
-                  <span className="text-slate-400 text-xs uppercase tracking-wide font-semibold">Part</span>
-                </div>
-                <p className="text-white font-medium">{preview.part_name}</p>
-                <p className="text-slate-400 text-sm">{preview.part_category}</p>
-              </div>
-
-              {/* Selected Option */}
-              <div className="bg-navy-card border border-gold/40 rounded-xl p-4">
-                <p className="text-gold text-xs uppercase tracking-wide font-semibold mb-3">
-                  Option {preview.option.option_number} — Your Selection
-                </p>
-                <div className="flex items-center gap-2 mb-2">
-                  <DollarSign size={15} className="text-gold" />
-                  <span className="text-white font-bold text-2xl">
-                    Rs. {Number(preview.option.admin_price).toLocaleString('si-LK')}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Clock size={13} className="text-slate-400" />
-                  <span className="text-slate-300 text-sm">
-                    Estimated delivery: {preview.option.delivery_days} day{preview.option.delivery_days !== 1 ? 's' : ''}
-                  </span>
-                </div>
-              </div>
-
-              <button
-                onClick={handleConfirm}
-                disabled={state === 'confirming'}
-                className="w-full bg-gold text-navy font-bold py-3 rounded-xl hover:bg-gold/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              >
-                {state === 'confirming' ? (
-                  <>
-                    <Loader2 size={16} className="animate-spin" />
-                    Confirming...
-                  </>
-                ) : (
-                  'Confirm & Place Order'
-                )}
-              </button>
-
-              <p className="text-slate-500 text-xs text-center">
-                By confirming, your order will be placed and you will receive a confirmation email and SMS.
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* Success */}
-        {state === 'confirmed' && (
-          <div className="bg-navy-light border border-green-500/30 rounded-2xl p-10 text-center">
-            <CheckCircle size={56} className="text-green-400 mx-auto mb-4" />
-            <h2 className="text-white font-bold text-xl mb-2">Order Confirmed!</h2>
-            <p className="text-slate-400 leading-relaxed">
-              Your order has been placed successfully. You will receive a confirmation email and SMS shortly.
-            </p>
-            <p className="text-slate-500 text-sm mt-4">Our team will be in touch with delivery details.</p>
-          </div>
-        )}
-
-        {/* Already selected */}
-        {state === 'already_done' && (
-          <div className="bg-navy-light border border-gold/30 rounded-2xl p-10 text-center">
-            <CheckCircle size={56} className="text-gold mx-auto mb-4" />
-            <h2 className="text-white font-bold text-xl mb-2">Order Already Placed</h2>
-            <p className="text-slate-400 leading-relaxed">
-              An option has already been selected for this ticket. Your order is confirmed.
-            </p>
-          </div>
-        )}
-
-        {/* Error */}
-        {state === 'error' && (
-          <div className="bg-navy-light border border-red-500/30 rounded-2xl p-10 text-center">
-            <XCircle size={56} className="text-red-400 mx-auto mb-4" />
-            <h2 className="text-white font-bold text-xl mb-2">Link Invalid</h2>
-            <p className="text-slate-400 leading-relaxed">{errorMsg}</p>
-          </div>
-        )}
-
-        <p className="text-center text-slate-600 text-xs mt-6">CarParts Finder</p>
+        </div>
       </div>
     </div>
   );

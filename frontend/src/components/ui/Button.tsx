@@ -1,9 +1,13 @@
+import { ArrowRight } from 'lucide-react';
 import { cn } from '../../utils/cn';
+import PistonLoader from './PistonLoader';
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
+  variant?: 'primary' | 'secondary' | 'ghost' | 'danger' | 'dark';
   size?: 'sm' | 'md' | 'lg';
   loading?: boolean;
+  /** Adds the sliding arrow used on the main calls to action */
+  arrow?: boolean;
   children: React.ReactNode;
 }
 
@@ -11,24 +15,28 @@ export default function Button({
   variant = 'primary',
   size = 'md',
   loading,
+  arrow,
   children,
   className,
   disabled,
   ...props
 }: ButtonProps) {
-  const base = 'inline-flex items-center justify-center gap-2 font-semibold rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95';
+  const base =
+    'group/btn relative inline-flex items-center justify-center gap-2.5 font-medium overflow-hidden ' +
+    'transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed select-none';
 
   const variants = {
-    primary: 'bg-gold text-navy hover:bg-gold-light shadow-lg hover:shadow-gold/20',
-    secondary: 'bg-navy-card border border-navy-border text-white hover:border-gold hover:text-gold',
-    ghost: 'text-slate-400 hover:text-white hover:bg-navy-card',
-    danger: 'bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20',
+    primary: 'bg-signal text-ink hover:bg-bone',
+    secondary: 'border border-bone/30 text-bone hover:border-bone hover:bg-bone hover:text-ink',
+    ghost: 'text-steel hover:text-bone',
+    danger: 'border border-red-500/40 text-red-400 hover:bg-red-500/10',
+    dark: 'bg-ink text-bone hover:bg-bone hover:text-ink',
   };
 
   const sizes = {
-    sm: 'px-3 py-1.5 text-sm',
-    md: 'px-5 py-2.5 text-sm',
-    lg: 'px-8 py-4 text-base',
+    sm: 'h-9 px-3.5 text-[13px]',
+    md: 'h-11 px-5 text-sm',
+    lg: 'h-14 px-7 text-[15px]',
   };
 
   return (
@@ -37,10 +45,20 @@ export default function Button({
       disabled={disabled || loading}
       {...props}
     >
-      {loading && (
-        <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-      )}
+      {loading && <PistonLoader size="sm" tone="current" />}
       {children}
+      {arrow && !loading && (
+        <span className="relative inline-flex w-4 overflow-hidden">
+          <ArrowRight
+            size={16}
+            className="transition-transform duration-300 ease-out group-hover/btn:translate-x-full"
+          />
+          <ArrowRight
+            size={16}
+            className="absolute left-0 -translate-x-full transition-transform duration-300 ease-out group-hover/btn:translate-x-0"
+          />
+        </span>
+      )}
     </button>
   );
 }

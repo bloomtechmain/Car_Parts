@@ -1,8 +1,9 @@
+import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Car } from 'lucide-react';
 import Button from '../ui/Button';
+import StepHeader from './StepHeader';
 import { CAR_MAKES } from '../../constants/brand';
 import type { FindPartsFormData } from '../../types';
 
@@ -18,61 +19,59 @@ type Step1Data = z.infer<typeof schema>;
 interface Props {
   defaultValues: Partial<FindPartsFormData>;
   onNext: (data: Step1Data) => void;
+  onLive?: (data: Partial<FindPartsFormData>) => void;
 }
 
 const years = Array.from({ length: new Date().getFullYear() - 1989 }, (_, i) => new Date().getFullYear() - i);
 
-export default function Step1CarInfo({ defaultValues, onNext }: Props) {
-  const { register, handleSubmit, formState: { errors } } = useForm<Step1Data>({
+export default function Step1CarInfo({ defaultValues, onNext, onLive }: Props) {
+  const { register, handleSubmit, watch, formState: { errors } } = useForm<Step1Data>({
     resolver: zodResolver(schema),
     defaultValues: { ...defaultValues, car_year: defaultValues.car_year || undefined },
   });
 
-  return (
-    <form onSubmit={handleSubmit(onNext)} className="space-y-5">
-      <div className="flex items-center gap-3 mb-6">
-        <div className="w-10 h-10 rounded-xl bg-gold/10 flex items-center justify-center">
-          <Car size={20} className="text-gold" />
-        </div>
-        <div>
-          <h3 className="font-bold text-white">Vehicle Information</h3>
-          <p className="text-slate-400 text-sm">Tell us about your car</p>
-        </div>
-      </div>
+  useEffect(() => {
+    const sub = watch((v) => onLive?.(v as Partial<FindPartsFormData>));
+    return () => sub.unsubscribe();
+  }, [watch, onLive]);
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+  return (
+    <form onSubmit={handleSubmit(onNext)}>
+      <StepHeader no="01" title="The car" hint="What it is, so suppliers quote the right part." />
+
+      <div className="grid grid-cols-1 gap-x-8 gap-y-7 sm:grid-cols-2">
         <div>
-          <label className="block text-sm font-medium text-slate-300 mb-1.5">Car Make *</label>
-          <select {...register('car_make')} className="input-base bg-navy-card">
+          <label className="field-label">Make *</label>
+          <select {...register('car_make')} className="input-base">
             <option value="">Select make</option>
             {CAR_MAKES.map((m) => <option key={m} value={m}>{m}</option>)}
           </select>
-          {errors.car_make && <p className="text-red-400 text-xs mt-1">{errors.car_make.message}</p>}
+          {errors.car_make && <p className="field-error">{errors.car_make.message}</p>}
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-300 mb-1.5">Car Model *</label>
+          <label className="field-label">Model *</label>
           <input {...register('car_model')} placeholder="e.g. Camry, X5, E-Class" className="input-base" />
-          {errors.car_model && <p className="text-red-400 text-xs mt-1">{errors.car_model.message}</p>}
+          {errors.car_model && <p className="field-error">{errors.car_model.message}</p>}
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-300 mb-1.5">Year *</label>
-          <select {...register('car_year', { valueAsNumber: true })} className="input-base bg-navy-card">
+          <label className="field-label">Year *</label>
+          <select {...register('car_year', { valueAsNumber: true })} className="input-base">
             <option value="">Select year</option>
             {years.map((y) => <option key={y} value={y}>{y}</option>)}
           </select>
-          {errors.car_year && <p className="text-red-400 text-xs mt-1">{errors.car_year.message}</p>}
+          {errors.car_year && <p className="field-error">{errors.car_year.message}</p>}
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-300 mb-1.5">VIN <span className="text-slate-500">(optional)</span></label>
-          <input {...register('car_vin')} placeholder="e.g. 1HGCM82633A123456" className="input-base" />
+          <label className="field-label">VIN <span className="normal-case tracking-normal text-steel/60">— optional</span></label>
+          <input {...register('car_vin')} placeholder="17 characters" className="input-base font-mono uppercase tracking-wider" />
         </div>
       </div>
 
-      <div className="pt-2">
-        <Button type="submit" size="lg" className="w-full">Continue to Part Details</Button>
+      <div className="mt-10">
+        <Button type="submit" size="lg" className="w-full" arrow>Next — the part</Button>
       </div>
     </form>
   );

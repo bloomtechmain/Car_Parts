@@ -1,56 +1,68 @@
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { CheckCircle, Mail, Clock } from 'lucide-react';
 import Button from '../ui/Button';
 
 interface Props {
   ticketNumber: string;
 }
 
+const NEXT = [
+  ['Now', 'A confirmation with your ticket number is on its way to your inbox.'],
+  ['Next few hours', 'Suppliers see the request and send in prices.'],
+  ['When quotes are in', 'We check them and send you the best options by email and SMS.'],
+];
+
 export default function SuccessScreen({ ticketNumber }: Props) {
   return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 0.4 }}
-      className="text-center py-8"
-    >
-      <motion.div
-        initial={{ scale: 0 }}
-        animate={{ scale: 1 }}
-        transition={{ type: 'spring', stiffness: 200, delay: 0.1 }}
-        className="w-20 h-20 bg-green-500/10 border border-green-500/30 rounded-full flex items-center justify-center mx-auto mb-6"
+    <div className="py-4">
+      <motion.p
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="label mb-6 flex items-center gap-2 text-signal"
       >
-        <CheckCircle size={36} className="text-green-400" />
+        <span className="h-1.5 w-1.5 bg-signal" /> Request received
+      </motion.p>
+
+      <h2 className="display mb-8 text-[clamp(2.6rem,6vw,4.6rem)] text-bone">
+        It’s out with
+        <br />
+        the suppliers.
+      </h2>
+
+      {/* the ticket number, stamped in */}
+      <motion.div
+        initial={{ scale: 1.6, rotate: -8, opacity: 0 }}
+        animate={{ scale: 1, rotate: -2, opacity: 1 }}
+        transition={{ type: 'spring', stiffness: 260, damping: 18, delay: 0.2 }}
+        className="mb-10 inline-block border-2 border-signal px-6 py-4"
+      >
+        <p className="label text-[10px] text-signal">Ticket</p>
+        <p className="font-mono text-3xl font-medium tracking-[0.12em] text-signal sm:text-4xl">{ticketNumber}</p>
       </motion.div>
 
-      <h2 className="text-2xl font-bold text-white mb-2">Request Submitted!</h2>
-      <p className="text-slate-400 mb-8">Your part request has been sent to our supplier network.</p>
-
-      <div className="bg-gradient-to-r from-gold/10 to-gold/5 border border-gold/20 rounded-2xl p-6 mb-8">
-        <p className="text-slate-400 text-sm mb-1">Your Ticket Number</p>
-        <p className="text-3xl font-black text-gold tracking-widest">{ticketNumber}</p>
-        <p className="text-slate-500 text-xs mt-2">Save this for your reference</p>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8 text-left">
-        {[
-          { icon: Mail, title: 'Confirmation Email', desc: "We've sent a confirmation to your email with your ticket details." },
-          { icon: Clock, title: "What's Next", desc: 'Suppliers will review your request and submit quotes. We\'ll contact you soon.' },
-        ].map(({ icon: Icon, title, desc }) => (
-          <div key={title} className="bg-navy-card border border-navy-border rounded-xl p-4 flex gap-3">
-            <Icon size={18} className="text-gold flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="text-white text-sm font-semibold">{title}</p>
-              <p className="text-slate-400 text-xs mt-0.5 leading-relaxed">{desc}</p>
-            </div>
-          </div>
+      <ol className="mb-10 border-t border-ink-line">
+        {NEXT.map(([when, what], i) => (
+          <motion.li
+            key={when}
+            initial={{ opacity: 0, x: -12 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.5 + i * 0.12 }}
+            className="grid grid-cols-[8.5rem_1fr] gap-4 border-b border-ink-line py-4 text-sm"
+          >
+            <span className="label pt-0.5 text-[10px] text-steel">{when}</span>
+            <span className="text-bone/90">{what}</span>
+          </motion.li>
         ))}
-      </div>
+      </ol>
 
-      <Link to="/">
-        <Button variant="secondary" size="lg">Return to Home</Button>
-      </Link>
-    </motion.div>
+      <div className="flex flex-wrap gap-3">
+        <Link to="/" tabIndex={-1}>
+          <Button variant="secondary" size="lg">Back to home</Button>
+        </Link>
+        <Link to="/faq" tabIndex={-1}>
+          <Button variant="ghost" size="lg">What happens next?</Button>
+        </Link>
+      </div>
+    </div>
   );
 }

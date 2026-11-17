@@ -7,49 +7,216 @@
     box-sizing: border-box;
   }
 
+  html,
+  body {
+    overflow-x: clip;
+  }
+
   html {
     scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
   }
 
   body {
-    @apply bg-navy text-white font-sans antialiased;
+    @apply bg-ink text-bone font-sans antialiased;
     margin: 0;
+    font-feature-settings: 'ss02';
   }
 
   #root {
     min-height: 100vh;
   }
 
+  ::selection {
+    @apply bg-signal text-ink;
+  }
+
   ::-webkit-scrollbar {
-    width: 6px;
+    width: 8px;
   }
 
   ::-webkit-scrollbar-track {
-    background: #111827;
+    background: #0f0e0c;
   }
 
   ::-webkit-scrollbar-thumb {
-    background: #1e2d45;
-    border-radius: 9999px;
+    background: #2d2a24;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: #d97706;
+    background: #ff5a1f;
+  }
+
+  /* Film grain — keeps flat areas from looking like a render */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: -50%;
+    z-index: 90;
+    pointer-events: none;
+    opacity: 0.05;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
   }
 }
 
+@keyframes piston {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(70%); }
+}
+
+/* ── Exploded engine drawing ───────────────────────── */
+.engine .fl {
+  fill: #13120f;
+  stroke: #e9e3d6;
+  stroke-width: 1.3;
+  stroke-linejoin: round;
+  transition: fill 0.25s, stroke 0.25s;
+}
+.engine .ln {
+  fill: none;
+  stroke: #e9e3d6;
+  stroke-width: 1.3;
+  stroke-linecap: round;
+  transition: stroke 0.25s;
+}
+.engine .dim {
+  stroke-opacity: 0.45;
+  stroke-width: 1;
+}
+.engine .bore {
+  fill: #0b0a08;
+  stroke: #e9e3d6;
+  stroke-opacity: 0.5;
+  stroke-width: 1;
+}
+.engine .engine-txt {
+  font: 500 9px 'IBM Plex Mono', monospace;
+  letter-spacing: 0.2em;
+  fill: #8f897d;
+}
+.engine .centerline {
+  stroke: #8f897d;
+  stroke-opacity: 0.25;
+  stroke-dasharray: 14 4 2 4;
+}
+.engine .engine-part {
+  transition: opacity 0.3s;
+  outline: none;
+}
+.engine.has-hot .engine-part:not(.hot) {
+  opacity: 0.28;
+}
+.engine .engine-part.hot .fl {
+  stroke: #ff5a1f;
+  fill: #26140b;
+}
+.engine .engine-part.hot .ln {
+  stroke: #ff5a1f;
+}
+.engine .leader {
+  stroke: #8f897d;
+  stroke-width: 0.8;
+}
+.engine .dot {
+  fill: #8f897d;
+}
+.engine .ring {
+  fill: #0f0e0c;
+  stroke: #8f897d;
+  stroke-width: 1;
+  transition: fill 0.25s, stroke 0.25s;
+}
+.engine .num {
+  font: 500 9.5px 'IBM Plex Mono', monospace;
+  fill: #e9e3d6;
+}
+.engine .engine-part.hot .ring {
+  fill: #ff5a1f;
+  stroke: #ff5a1f;
+}
+.engine .engine-part.hot .num {
+  fill: #0f0e0c;
+}
+.engine .engine-part.hot .leader {
+  stroke: #ff5a1f;
+}
+
 @layer components {
-  .glass {
-    @apply bg-white/5 backdrop-blur-md border border-white/10;
+  /* Small monospace spec label — "SEC. 02 / PROCESS" */
+  .label {
+    @apply font-mono text-[11px] uppercase tracking-label;
   }
 
-  .gold-glow {
-    box-shadow: 0 0 30px rgba(245, 158, 11, 0.2);
+  .display {
+    @apply font-display font-extrabold uppercase leading-[0.86] tracking-[-0.01em];
+  }
+
+  .shell {
+    @apply mx-auto w-full max-w-[1320px] px-4 sm:px-6 lg:px-10;
+  }
+
+  .hairline {
+    @apply border-ink-line;
+  }
+
+  .paper-section {
+    @apply bg-paper text-paper-ink;
+  }
+
+  /* Underline that draws in from the left on hover */
+  .link-draw {
+    background-image: linear-gradient(currentColor, currentColor);
+    background-size: 0% 1px;
+    background-position: 0 100%;
+    background-repeat: no-repeat;
+    transition: background-size 0.35s cubic-bezier(0.65, 0, 0.35, 1);
+  }
+  .link-draw:hover {
+    background-size: 100% 1px;
   }
 
   .input-base {
-    @apply w-full bg-navy-card border border-navy-border rounded-xl px-4 py-3 text-white
-           placeholder-slate-500 focus:outline-none focus:border-gold focus:ring-1 focus:ring-gold
-           transition-all duration-200;
+    @apply w-full bg-transparent border-0 border-b border-ink-line px-0 py-3 text-bone
+           placeholder:text-steel/70 rounded-none
+           focus:outline-none focus:border-signal focus:ring-0
+           transition-colors duration-200;
+  }
+
+  select.input-base {
+    @apply cursor-pointer appearance-none pr-8;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none' stroke='%238f897d' stroke-width='1.5'%3E%3Cpath d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 4px center;
+  }
+
+  select.input-base option {
+    @apply bg-ink-2 text-bone;
+  }
+
+  .field-label {
+    @apply label block text-steel;
+  }
+
+  .field-error {
+    @apply mt-1.5 font-mono text-[11px] text-signal;
+  }
+
+  /* Dashboard inputs keep a boxed look — they're dense data screens */
+  .input-box {
+    @apply w-full bg-ink-2 border border-ink-line px-3.5 py-2.5 text-bone
+           placeholder:text-steel/70 focus:outline-none focus:border-signal transition-colors;
   }
 }

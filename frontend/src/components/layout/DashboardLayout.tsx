@@ -1,10 +1,9 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Wrench, LogOut, TicketCheck, Users, LayoutDashboard } from 'lucide-react';
+import { LogOut, TicketCheck, Users, LayoutDashboard } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
-import { BRAND } from '../../constants/brand';
 import { cn } from '../../utils/cn';
-import Button from '../ui/Button';
+import Logo from '../ui/Logo';
 
 interface Props {
   children: React.ReactNode;
@@ -33,57 +32,55 @@ export default function DashboardLayout({ children }: Props) {
   const links = user?.role === 'admin' ? adminLinks : supplierLinks;
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <header className="bg-navy-light border-b border-navy-border sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-6">
-              <Link to="/" className="flex items-center gap-2 group">
-                <div className="w-8 h-8 rounded-lg bg-gold flex items-center justify-center">
-                  <Wrench size={15} className="text-navy" />
-                </div>
-                <span className="font-bold text-white hidden sm:block">{BRAND.name}</span>
-              </Link>
-
-              <div className="hidden sm:flex items-center gap-1">
-                {links.map((link) => (
+    <div className="flex min-h-screen flex-col bg-ink">
+      <header className="sticky top-0 z-40 border-b border-ink-line bg-ink/95 backdrop-blur-md">
+        <div className="shell flex h-16 items-center justify-between">
+          <div className="flex items-center gap-8">
+            <Logo />
+            <span className="label hidden border-l border-ink-line pl-6 text-steel md:block">
+              {user?.role === 'admin' ? 'Admin desk' : 'Supplier portal'}
+            </span>
+            <nav className="flex items-center gap-1">
+              {links.map((link) => {
+                const active = location.pathname === link.href;
+                return (
                   <Link
                     key={link.href}
                     to={link.href}
                     className={cn(
-                      'flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all',
-                      location.pathname === link.href
-                        ? 'text-gold bg-gold/10'
-                        : 'text-slate-400 hover:text-white hover:bg-navy-card'
+                      'relative flex items-center gap-1.5 px-3 py-2 text-sm transition-colors',
+                      active ? 'text-bone' : 'text-steel hover:text-bone',
                     )}
                   >
-                    <link.icon size={15} />
-                    {link.label}
+                    <link.icon size={15} className={active ? 'text-signal' : undefined} />
+                    <span className="hidden sm:inline">{link.label}</span>
+                    {active && (
+                      <motion.span layoutId="dash-active" className="absolute inset-x-3 -bottom-[13px] h-0.5 bg-signal" />
+                    )}
                   </Link>
-                ))}
-              </div>
-            </div>
+                );
+              })}
+            </nav>
+          </div>
 
-            <div className="flex items-center gap-3">
-              <div className="hidden sm:block text-right">
-                <p className="text-white text-sm font-medium">{user?.company_name || user?.email}</p>
-                <p className="text-slate-500 text-xs capitalize">{user?.role}</p>
-              </div>
-              <Button variant="ghost" size="sm" onClick={handleLogout} className="text-slate-400">
-                <LogOut size={16} />
-                <span className="hidden sm:inline">Logout</span>
-              </Button>
+          <div className="flex items-center gap-4">
+            <div className="hidden text-right sm:block">
+              <p className="text-sm text-bone">{user?.company_name || user?.email}</p>
+              <p className="label text-[10px] text-steel">{user?.role}</p>
             </div>
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-2 border border-ink-line px-3 py-2 text-sm text-steel transition-colors hover:border-signal hover:text-bone"
+            >
+              <LogOut size={15} />
+              <span className="hidden sm:inline">Log out</span>
+            </button>
           </div>
         </div>
       </header>
 
-      <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-        >
+      <main className="shell flex-1 py-8">
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
           {children}
         </motion.div>
       </main>
