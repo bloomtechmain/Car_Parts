@@ -13,7 +13,8 @@ import ExplodedEngine from './engine/ExplodedEngine';
 import { ENGINE_LEGEND, type EnginePart } from './engine/parts';
 import { MaskLines } from '../ui/Reveal';
 import Button from '../ui/Button';
-import { CAR_MAKES, PHOTOS } from '../../constants/brand';
+import { PHOTOS } from '../../constants/brand';
+import RequestModal from '../find-parts/RequestModal';
 import { introPending } from '../layout/intro';
 import { cn } from '../../utils/cn';
 
@@ -26,6 +27,7 @@ export default function Hero() {
   const [hot, setHot] = useState<string | null>(null);
   const [entered, setEntered] = useState(false);
   const [startDelay] = useState(() => (introPending() ? 1.9 : 0.25));
+  const [requestOpen, setRequestOpen] = useState(false);
 
   /* explode = spring(target) + scroll — parts fly in, assemble, then
      pull apart again when you hover the drawing or scroll past it */
@@ -54,17 +56,6 @@ export default function Hero() {
     navigate(
       `/find-parts?part=${encodeURIComponent(part.requestName)}&category=${encodeURIComponent(part.category)}`,
     );
-
-  const onQuickSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const f = new FormData(e.currentTarget);
-    const qs = new URLSearchParams();
-    for (const key of ['make', 'model', 'part']) {
-      const v = String(f.get(key) ?? '').trim();
-      if (v) qs.set(key, v);
-    }
-    navigate(`/find-parts${qs.toString() ? `?${qs}` : ''}`);
-  };
 
   return (
     <section ref={sectionRef} className="relative overflow-hidden bg-ink pt-[72px]">
@@ -109,39 +100,24 @@ export default function Hero() {
             )}
           </h1>
 
-          {/* quick request docket */}
-          <motion.form
-            onSubmit={onQuickSubmit}
+          {/* quick request — opens the 3-step request in a popup */}
+          <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={entered ? { opacity: 1, y: 0 } : undefined}
             transition={{ duration: 0.8, delay: 0.6 }}
-            className="mt-10 border border-ink-line bg-ink/80 backdrop-blur-sm"
+            className="mt-10"
           >
-            <div className="grid grid-cols-2 sm:grid-cols-[1fr_1fr_1.3fr]">
-              <label className="border-b border-r border-ink-line px-4 pb-2 pt-3 sm:border-b-0">
-                <span className="label block text-[10px] text-steel">Make</span>
-                <select name="make" defaultValue="" className="input-base border-0 py-1.5 text-[15px]">
-                  <option value="">Any</option>
-                  {CAR_MAKES.map((m) => (
-                    <option key={m} value={m}>
-                      {m}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="border-b border-ink-line px-4 pb-2 pt-3 sm:border-b-0 sm:border-r">
-                <span className="label block text-[10px] text-steel">Model</span>
-                <input name="model" placeholder="Corolla" className="input-base border-0 py-1.5 text-[15px]" />
-              </label>
-              <label className="col-span-2 px-4 pb-2 pt-3 sm:col-span-1">
-                <span className="label block text-[10px] text-steel">Part you need</span>
-                <input name="part" placeholder="Front brake pads" className="input-base border-0 py-1.5 text-[15px]" />
-              </label>
-            </div>
-            <Button type="submit" size="lg" arrow className="w-full">
-              Get quotes for this part
+            <Button
+              type="button"
+              size="lg"
+              arrow
+              onClick={() => setRequestOpen(true)}
+              className="h-16 w-full px-9 text-[17px] sm:w-auto"
+            >
+              Find Your Part Quickly
             </Button>
-          </motion.form>
+          </motion.div>
+          <RequestModal open={requestOpen} onClose={() => setRequestOpen(false)} />
 
           <motion.p
             initial={{ opacity: 0 }}

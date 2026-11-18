@@ -3,6 +3,10 @@ import { z } from 'zod';
 import pool from '../config/db';
 import { AuthRequest } from '../types';
 import { uploadFile } from '../services/r2Service';
+import { ticketHiddenFromSupplierSql } from '../services/accountService';
+
+// A supplier never sees tickets raised by their own customer account (same email/phone)
+const HIDDEN = ticketHiddenFromSupplierSql('me', 't');
 
 export async function getTickets(req: AuthRequest, res: Response): Promise<void> {
   const result = await pool.query(
@@ -11,8 +15,9 @@ export async function getTickets(req: AuthRequest, res: Response): Promise<void>
             COUNT(sr.id)::int AS reply_count,
             EXISTS(SELECT 1 FROM supplier_replies WHERE ticket_id = t.id AND supplier_id = $1) AS i_replied
      FROM tickets t
+     JOIN users me ON me.id = $1
      LEFT JOIN supplier_replies sr ON sr.ticket_id = t.id
-     WHERE t.status != 'closed'
+     WHERE t.status != 'closed' AND NOT ${HIDDEN}
      GROUP BY t.id
      ORDER BY t.created_at DESC`,
     [req.user!.id]
@@ -24,10 +29,12 @@ export async function getTicket(req: AuthRequest, res: Response): Promise<void> 
   const { id } = req.params;
 
   const ticketResult = await pool.query(
-    `SELECT id, ticket_number, car_make, car_model, car_year, car_vin,
-            part_name, part_description, part_category, status, created_at
-     FROM tickets WHERE id = $1 AND status != 'closed'`,
-    [id]
+    `SELECT t.id, t.ticket_number, t.car_make, t.car_model, t.car_year, t.car_vin,
+            t.part_name, t.part_description, t.part_category, t.status, t.created_at
+     FROM tickets t
+     JOIN users me ON me.id = $2
+     WHERE t.id = $1 AND t.status != 'closed' AND NOT ${HIDDEN}`,
+    [id, req.user!.id]
   );
 
   if (!ticketResult.rows[0]) {
@@ -68,8 +75,10 @@ export async function submitReply(req: AuthRequest, res: Response): Promise<void
   }
 
   const ticketResult = await pool.query(
-    'SELECT id, status FROM tickets WHERE id = $1',
-    [id]
+    `SELECT t.id, t.status FROM tickets t
+     JOIN users me ON me.id = $2
+     WHERE t.id = $1 AND NOT ${HIDDEN}`,
+    [id, req.user!.id]
   );
   if (!ticketResult.rows[0]) {
     res.status(404).json({ error: 'Ticket not found' });

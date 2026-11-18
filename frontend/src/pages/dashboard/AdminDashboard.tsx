@@ -1,33 +1,54 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Search, RefreshCw, TicketCheck, Users } from 'lucide-react';
+import { Search, RefreshCw, TicketCheck, Users, UserCog, UserCheck } from 'lucide-react';
 import toast from 'react-hot-toast';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import TicketTable from '../../components/dashboard/TicketTable';
 import TicketDetailModal from '../../components/dashboard/TicketDetailModal';
 import SupplierManagement from '../../components/dashboard/SupplierManagement';
+import CustomerManagement from '../../components/dashboard/CustomerManagement';
+import SupplierRequests from '../../components/dashboard/SupplierRequests';
 import Spinner from '../../components/ui/Spinner';
 import Button from '../../components/ui/Button';
 import api from '../../services/api';
-import type { AdminTicket, SupplierAccount } from '../../types';
+import type { AdminTicket, SupplierAccount, CustomerAccount } from '../../types';
 import { cn } from '../../utils/cn';
 
-type Tab = 'tickets' | 'suppliers';
+type Tab = 'tickets' | 'suppliers' | 'requests' | 'customers';
+
+const TAB_PATH: Record<Tab, string> = {
+  tickets: '/dashboard/admin',
+  suppliers: '/dashboard/admin/suppliers',
+  requests: '/dashboard/admin/supplier-requests',
+  customers: '/dashboard/admin/customers',
+};
 
 export default function AdminDashboard() {
   const location = useLocation();
   const navigate = useNavigate();
-  const initialTab: Tab = location.pathname.includes('/suppliers') ? 'suppliers' : 'tickets';
-  const [tab, setTab] = useState<Tab>(initialTab);
+  // The tab follows the URL, so the header links (Tickets / Suppliers / Customers) also switch it
+  const tab: Tab = location.pathname.includes('/supplier-requests')
+    ? 'requests'
+    : location.pathname.includes('/suppliers')
+      ? 'suppliers'
+      : location.pathname.includes('/customers') ? 'customers' : 'tickets';
 
-  const switchTab = (t: Tab) => {
-    setTab(t);
-    navigate(t === 'suppliers' ? '/dashboard/admin/suppliers' : '/dashboard/admin', { replace: true });
-  };
+  const switchTab = (t: Tab) => navigate(TAB_PATH[t], { replace: true });
   const [tickets, setTickets] = useState<AdminTicket[]>([]);
   const [suppliers, setSuppliers] = useState<SupplierAccount[]>([]);
   const [loadingTickets, setLoadingTickets] = useState(true);
   const [loadingSuppliers, setLoadingSuppliers] = useState(false);
+  const [customers, setCustomers] = useState<CustomerAccount[]>([]);
+  const [loadingCustomers, setLoadingCustomers] = useState(false);
+  const [customersLoaded, setCustomersLoaded] = useState(false);
+  const [pendingSuppliers, setPendingSuppliers] = useState(0);
+
+  // Badge on the Supplier Requests tab
+  useEffect(() => {
+    api.get('/api/admin/supplier-requests?status=pending')
+      .then((res) => setPendingSuppliers(res.data.pending_count))
+      .catch(() => {});
+  }, []);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -56,11 +77,35 @@ export default function AdminDashboard() {
     }
   };
 
+  const loadCustomers = async () => {
+    setLoadingCustomers(true);
+    try {
+      const res = await api.get('/api/admin/customers');
+      setCustomers(res.data.customers);
+      setCustomersLoaded(true);
+    } catch {
+      toast.error('Failed to load customers');
+    } finally {
+      setLoadingCustomers(false);
+    }
+  };
+
   useEffect(() => { loadTickets(); }, []);
+
+  useEffect(() => {
+    if (tab === 'customers' && !customersLoaded) loadCustomers();
+  }, [tab]);
 
   useEffect(() => {
     if (tab === 'suppliers' && suppliers.length === 0) loadSuppliers();
   }, [tab]);
+
+  // After "Send Options Email to Customer": close the ticket window and show the Closed tickets
+  const handleOptionsSent = useCallback(() => {
+    setSelectedId(null);
+    setStatusFilter('closed');
+    loadTickets();
+  }, []);
 
   const filtered = tickets.filter((t) => {
     const matchSearch = search === '' ||
@@ -101,6 +146,34 @@ export default function AdminDashboard() {
           )}
         >
           <Users size={15} /> Suppliers
+        </button>
+        <button
+          onClick={() => switchTab('requests')}
+          className={cn(
+            'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all',
+            tab === 'requests' ? 'bg-gold text-navy' : 'text-slate-400 hover:text-white'
+          )}
+        >
+          <UserCheck size={15} /> Supplier Requests
+          {pendingSuppliers > 0 && (
+            <span className={cn('text-xs px-1.5 py-0.5 rounded-full', tab === 'requests' ? 'bg-navy/20' : 'bg-red-500 text-white')}>
+              {pendingSuppliers}
+            </span>
+          )}
+        </button>
+        <button
+          onClick={() => switchTab('customers')}
+          className={cn(
+            'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all',
+            tab === 'customers' ? 'bg-gold text-navy' : 'text-slate-400 hover:text-white'
+          )}
+        >
+          <UserCog size={15} /> Customers
+          {customersLoaded && (
+            <span className={cn('text-xs px-1.5 py-0.5 rounded-full', tab === 'customers' ? 'bg-navy/20' : 'bg-navy-light')}>
+              {customers.length}
+            </span>
+          )}
         </button>
       </div>
 
@@ -172,12 +245,28 @@ export default function AdminDashboard() {
         )
       )}
 
+      {tab === 'requests' && (
+        <SupplierRequests
+          onCountChange={setPendingSuppliers}
+          onApproved={() => setSuppliers([])}
+        />
+      )}
+
+      {tab === 'customers' && (
+        loadingCustomers && !customersLoaded ? (
+          <Spinner className="mt-16" />
+        ) : (
+          <CustomerManagement customers={customers} onRefresh={loadCustomers} onOpenTicket={(id) => setSelectedId(id)} />
+        )
+      )}
+
       {selectedId !== null && (
         <TicketDetailModal
           ticketId={selectedId}
           isAdmin
           onClose={() => setSelectedId(null)}
           onStatusChange={() => loadTickets()}
+          onOptionsSent={handleOptionsSent}
         />
       )}
     </DashboardLayout>

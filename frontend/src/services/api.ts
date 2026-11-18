@@ -16,7 +16,9 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (res) => res,
   (error) => {
-    if (error.response?.status === 401) {
+    // A wrong password on the login/register forms is a normal 401 — don't bounce the page
+    const isAuthCall = String(error.config?.url || '').includes('/api/auth/');
+    if (error.response?.status === 401 && !isAuthCall) {
       useAuthStore.getState().logout();
       window.location.href = '/dashboard/login';
     }

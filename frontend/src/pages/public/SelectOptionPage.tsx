@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
+import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../../services/api';
 import Logo from '../../components/ui/Logo';
 import Button from '../../components/ui/Button';
 import PistonLoader from '../../components/ui/PistonLoader';
+import { useAuthStore } from '../../store/authStore';
 import { PHOTOS } from '../../constants/brand';
 
 interface OptionPreview {
@@ -22,6 +23,19 @@ interface OptionPreview {
   };
 }
 
+interface TicketOwner {
+  ticket_id: number;
+  has_account: boolean;
+  account_hint: string | null;
+}
+
+/** Portal URL carrying the ticket to verify + the masked email of the account that owns it */
+function portalPathFor(owner: TicketOwner): string {
+  const qs = new URLSearchParams({ ticket: String(owner.ticket_id) });
+  if (owner.account_hint) qs.set('hint', owner.account_hint);
+  return `${PORTAL_PATH}?${qs}`;
+}
+
 type PageState = 'loading' | 'preview' | 'confirming' | 'confirmed' | 'error' | 'already_done';
 
 function Row({ k, v }: { k: string; v: React.ReactNode }) {
@@ -34,7 +48,12 @@ function Row({ k, v }: { k: string; v: React.ReactNode }) {
   );
 }
 
-function Message({ tone, kicker, title, body }: { tone: 'good' | 'bad'; kicker: string; title: string; body: string }) {
+const PORTAL_PATH = '/dashboard/customer';
+const REDIRECT_SECONDS = 4;
+
+function Message({
+  tone, kicker, title, body, redirectIn, portalTo,
+}: { tone: 'good' | 'bad'; kicker: string; title: string; body: string; redirectIn?: number; portalTo?: string }) {
   return (
     <motion.div
       key={title}
@@ -45,9 +64,20 @@ function Message({ tone, kicker, title, body }: { tone: 'good' | 'bad'; kicker: 
       <p className={`label mb-5 ${tone === 'good' ? 'text-signal' : 'text-red-400'}`}>{kicker}</p>
       <h1 className="display mb-5 text-[clamp(2.8rem,8vw,4.6rem)] text-bone">{title}</h1>
       <p className="mb-10 max-w-sm leading-relaxed text-steel">{body}</p>
-      <Link to="/" tabIndex={-1}>
-        <Button variant="secondary">Go to the website</Button>
-      </Link>
+      {redirectIn !== undefined && portalTo ? (
+        <>
+          <p className="label mb-5 text-[11px] text-steel">
+            Taking you to your portal in <span className="text-signal">{redirectIn}</span>…
+          </p>
+          <Link to={portalTo} tabIndex={-1}>
+            <Button arrow>Go to my portal now</Button>
+          </Link>
+        </>
+      ) : (
+        <Link to="/" tabIndex={-1}>
+          <Button variant="secondary">Go to the website</Button>
+        </Link>
+      )}
     </motion.div>
   );
 }
@@ -61,6 +91,29 @@ export default function SelectOptionPage() {
   const [state, setState] = useState<PageState>(incomplete ? 'error' : 'loading');
   const [preview, setPreview] = useState<OptionPreview | null>(null);
   const [errorMsg, setErrorMsg] = useState(incomplete ? 'This link is invalid or incomplete.' : '');
+  const navigate = useNavigate();
+  const [countdown, setCountdown] = useState(REDIRECT_SECONDS);
+  const [owner, setOwner] = useState<TicketOwner | null>(null);
+  const logout = useAuthStore((s) => s.logout);
+
+  // After a successful selection, take the customer to THEIR portal automatically.
+  // The portal checks the logged-in account owns this ticket; if not (or nobody is logged in)
+  // the customer must log in with the right account first. Tickets without an account don't redirect.
+  const done = (state === 'confirmed' || state === 'already_done') && Boolean(owner?.has_account);
+  const portalTo = owner?.has_account ? portalPathFor(owner) : undefined;
+  useEffect(() => {
+    if (!done) return;
+    const timer = setInterval(() => setCountdown((c) => Math.max(c - 1, 0)), 1000);
+    return () => clearInterval(timer);
+  }, [done]);
+
+  useEffect(() => {
+    if (!done || countdown !== 0 || !portalTo) return;
+    // A supplier/admin session can't open the customer portal — sign it out so the login asks for the customer account
+    const { token, user } = useAuthStore.getState();
+    if (token && user && user.role !== 'customer') logout();
+    navigate(portalTo, { replace: true });
+  }, [done, countdown, navigate, portalTo, logout]);
 
   useEffect(() => {
     if (incomplete) return;
@@ -73,6 +126,7 @@ export default function SelectOptionPage() {
       .catch((err) => {
         const data = err?.response?.data;
         if (data?.already_selected) {
+          if (data.owner) setOwner(data.owner);
           setState('already_done');
         } else {
           setErrorMsg(data?.error || 'This link is invalid or has expired.');
@@ -84,14 +138,16 @@ export default function SelectOptionPage() {
   const handleConfirm = async () => {
     setState('confirming');
     try {
-      await api.post('/api/tickets/confirm-selection', {
+      const res = await api.post('/api/tickets/confirm-selection', {
         token,
         reply_id: Number(reply),
       });
+      if (res.data?.owner) setOwner(res.data.owner);
       setState('confirmed');
     } catch (err: unknown) {
-      const data = (err as { response?: { data?: { error?: string; already_selected?: boolean } } })?.response?.data;
+      const data = (err as { response?: { data?: { error?: string; already_selected?: boolean; owner?: TicketOwner } } })?.response?.data;
       if (data?.already_selected) {
+        if (data.owner) setOwner(data.owner);
         setState('already_done');
       } else {
         setErrorMsg(data?.error || 'Failed to confirm selection. Please try again.');
@@ -175,6 +231,8 @@ export default function SelectOptionPage() {
                   kicker="Order placed"
                   title="Done. It’s yours."
                   body="Your order has been placed. A confirmation email and SMS are on their way, and our team will be in touch with delivery details."
+                  redirectIn={done ? countdown : undefined}
+                  portalTo={portalTo}
                 />
               )}
 
@@ -184,6 +242,8 @@ export default function SelectOptionPage() {
                   kicker="Already confirmed"
                   title="You’re all set."
                   body="An option has already been selected for this ticket, so your order is confirmed. Nothing else to do."
+                  redirectIn={done ? countdown : undefined}
+                  portalTo={portalTo}
                 />
               )}
 

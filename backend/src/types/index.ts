@@ -1,9 +1,11 @@
 import { Request } from 'express';
 
+export type Role = 'admin' | 'supplier' | 'customer';
+
 export interface AuthUser {
   id: number;
   email: string;
-  role: 'admin' | 'supplier';
+  role: Role;
   company_name: string | null;
 }
 
@@ -49,7 +51,7 @@ export interface User {
   id: number;
   email: string;
   password_hash: string;
-  role: 'admin' | 'supplier';
+  role: Role;
   company_name: string | null;
   phone: string | null;
   is_active: boolean;

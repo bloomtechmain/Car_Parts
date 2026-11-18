@@ -1,7 +1,9 @@
+export type Role = 'admin' | 'supplier' | 'customer';
+
 export interface User {
   id: number;
   email: string;
-  role: 'admin' | 'supplier';
+  role: Role;
   company_name: string | null;
 }
 
@@ -75,4 +77,59 @@ export interface SupplierAccount {
   phone: string | null;
   is_active: boolean;
   created_at: string;
+}
+
+/* ── Customer portal ── */
+export interface CustomerTicket {
+  id: number;
+  ticket_number: string;
+  car_make: string;
+  car_model: string;
+  car_year: number;
+  part_name: string;
+  part_category: string;
+  status: 'open' | 'replied' | 'closed';
+  created_at: string;
+  selected_reply_id: number | null;
+  quotes_received: number;
+  options_ready: number;
+}
+
+export interface CustomerOption {
+  reply_id: number;
+  option_number: number;
+  admin_price: number;
+  delivery_days: number;
+}
+
+export interface CustomerTicketDetail {
+  id: number;
+  ticket_number: string;
+  car_make: string;
+  car_model: string;
+  car_year: number;
+  car_vin: string | null;
+  part_name: string;
+  part_description: string | null;
+  part_category: string;
+  status: 'open' | 'replied' | 'closed';
+  created_at: string;
+  selected_reply_id: number | null;
+  quotes_received: number;
+  full_name: string;
+  phone: string;
+  location: string;
+  options: CustomerOption[];
+}
+
+export interface CustomerAccount {
+  id: number;
+  email: string;
+  phone: string | null;
+  is_active: boolean;
+  created_at: string;
+  ticket_count: number;
+  active_count: number;
+  order_count: number;
+  last_request_at: string | null;
 }

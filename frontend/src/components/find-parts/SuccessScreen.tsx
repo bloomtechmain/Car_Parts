@@ -4,15 +4,17 @@ import Button from '../ui/Button';
 
 interface Props {
   ticketNumber: string;
+  /** In the popup: show "Close" instead of "Back to home" */
+  onClose?: () => void;
 }
 
 const NEXT = [
   ['Now', 'A confirmation with your ticket number is on its way to your inbox.'],
   ['Next few hours', 'Suppliers see the request and send in prices.'],
-  ['When quotes are in', 'We check them and send you the best options by email and SMS.'],
+  ['When quotes are in', 'We check them and send you the best options by email — they also appear in My requests.'],
 ];
 
-export default function SuccessScreen({ ticketNumber }: Props) {
+export default function SuccessScreen({ ticketNumber, onClose }: Props) {
   return (
     <div className="py-4">
       <motion.p
@@ -56,9 +58,16 @@ export default function SuccessScreen({ ticketNumber }: Props) {
       </ol>
 
       <div className="flex flex-wrap gap-3">
-        <Link to="/" tabIndex={-1}>
-          <Button variant="secondary" size="lg">Back to home</Button>
+        <Link to="/dashboard/customer" tabIndex={-1} onClick={() => onClose?.()}>
+          <Button size="lg" arrow>Track it in My requests</Button>
         </Link>
+        {onClose ? (
+          <Button variant="secondary" size="lg" onClick={onClose}>Close</Button>
+        ) : (
+          <Link to="/" tabIndex={-1}>
+            <Button variant="secondary" size="lg">Back to home</Button>
+          </Link>
+        )}
         <Link to="/faq" tabIndex={-1}>
           <Button variant="ghost" size="lg">What happens next?</Button>
         </Link>

@@ -1,14 +1,21 @@
-import { Resend } from 'resend';
 import dotenv from 'dotenv';
+import { mailer as resend, senderAddress, configProblems, EMAIL_PROVIDER } from './mailer';
 
 dotenv.config();
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-
-const FROM = `${process.env.FROM_NAME || 'CarParts Finder'} <${process.env.FROM_EMAIL || 'onboarding@resend.dev'}>`;
+const FROM = senderAddress();
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@carpartsfinder.com';
 const DEV_OVERRIDE = process.env.DEV_EMAIL_OVERRIDE;
+
+{
+  const problems = configProblems();
+  if (problems.length) {
+    console.warn(`[email] WARNING: ${EMAIL_PROVIDER} email is not configured — emails will NOT be delivered:\n  - ${problems.join('\n  - ')}\n  Run "npm run test:email" to check.`);
+  } else {
+    console.log(`[email] Using ${EMAIL_PROVIDER.toUpperCase()} — sending as ${FROM}`);
+  }
+}
 
 function resolveRecipient(intended: string): { to: string[]; devNote: string } {
   if (DEV_OVERRIDE && intended !== DEV_OVERRIDE) {
@@ -384,5 +391,96 @@ export async function sendContactFormEmail(data: {
 
   if (result.error) {
     console.error('[email] Contact form error:', JSON.stringify(result.error));
+  }
+}
+
+/* ───────────────────────── Supplier applications ───────────────────────── */
+
+function esc(v: string): string {
+  return v.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
+}
+
+/** To the admin: a supplier applied for an account */
+export async function sendSupplierApplicationToAdmin(app: {
+  company_name: string;
+  email: string;
+  phone: string;
+  address: string;
+  business_details: string;
+}): Promise<void> {
+  const { to, devNote } = resolveRecipient(ADMIN_EMAIL);
+  const row = (label: string, value: string, shade: boolean) =>
+    `<tr${shade ? ' style="background:#1a2235;"' : ''}><td style="padding:10px 14px;font-weight:600;color:#94a3b8;width:35%;">${label}</td><td style="padding:10px 14px;color:#e2e8f0;">${esc(value) || '—'}</td></tr>`;
+
+  const result = await resend.emails.send({
+    from: FROM,
+    to,
+    subject: `${devNote}New Supplier Application — ${app.company_name}`,
+    html: `
+      <div style="font-family:Inter,sans-serif;max-width:600px;margin:0 auto;background:#0a0f1e;color:#ffffff;border-radius:12px;overflow:hidden;">
+        <div style="background:#f59e0b;padding:24px 32px;">
+          <h1 style="margin:0;color:#0a0f1e;font-size:22px;">New Supplier Application</h1>
+          <p style="margin:4px 0 0;color:#0a0f1e;opacity:0.8;">Waiting for your approval</p>
+        </div>
+        <div style="padding:32px;">
+          <table style="border-collapse:collapse;width:100%;margin:0 0 20px;">
+            ${row('Company', app.company_name, true)}
+            ${row('Email', app.email, false)}
+            ${row('Phone', app.phone, true)}
+            ${row('Address', app.address, false)}
+            ${row('Business details', app.business_details, true)}
+          </table>
+          <div style="text-align:center;">
+            <a href="${FRONTEND_URL}/dashboard/admin/supplier-requests" style="background:#f59e0b;color:#0a0f1e;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:700;font-size:16px;">Review Application</a>
+          </div>
+        </div>
+      </div>
+    `,
+  });
+  if (result.error) {
+    console.error('[email] Supplier application email error:', JSON.stringify(result.error));
+  } else {
+    console.log(`[email] Supplier application notification sent → ${to[0]}`);
+  }
+}
+
+/** To the supplier: application approved or not approved */
+export async function sendSupplierApprovalEmail(
+  supplierEmail: string,
+  companyName: string | null,
+  approved: boolean,
+  reason?: string | null
+): Promise<void> {
+  const { to, devNote } = resolveRecipient(supplierEmail);
+  const body = approved
+    ? `<p style="color:#e2e8f0;line-height:1.6;">Your account has been <strong style="color:#22c55e;">activated successfully</strong>. Our team has approved your supplier application — you can now log in to the supplier portal with the email and password you registered with, see part requests and send quotes.</p>
+       <div style="text-align:center;margin:28px 0 8px;">
+         <a href="${FRONTEND_URL}/dashboard/login" style="background:#f59e0b;color:#0a0f1e;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:700;font-size:16px;">Log in to the Supplier Portal</a>
+       </div>`
+    : `<p style="color:#e2e8f0;line-height:1.6;">Thank you for applying. Unfortunately your supplier application was <strong>not approved</strong> at this time.</p>
+       ${reason ? `<p style="color:#e2e8f0;line-height:1.6;"><strong>Reason:</strong> ${esc(reason)}</p>` : ''}
+       <p style="color:#94a3b8;line-height:1.6;">You are welcome to apply again with updated details, or reply to this email if you have questions.</p>`;
+
+  const result = await resend.emails.send({
+    from: FROM,
+    to,
+    subject: `${devNote}${approved ? 'Your Account Activated Successfully' : 'Your Supplier Application'} — CarParts Finder`,
+    html: `
+      <div style="font-family:Inter,sans-serif;max-width:600px;margin:0 auto;background:#0a0f1e;color:#ffffff;border-radius:12px;overflow:hidden;">
+        <div style="background:#f59e0b;padding:24px 32px;">
+          <h1 style="margin:0;color:#0a0f1e;font-size:22px;">${approved ? 'Your account activated successfully' : 'Supplier application update'}</h1>
+          ${approved ? '<p style="margin:4px 0 0;color:#0a0f1e;opacity:0.8;">Welcome to the CarParts Finder supplier network</p>' : ''}
+        </div>
+        <div style="padding:32px;">
+          <p style="color:#94a3b8;">Hello ${esc(companyName || 'Supplier')},</p>
+          ${body}
+        </div>
+      </div>
+    `,
+  });
+  if (result.error) {
+    console.error('[email] Supplier approval email error:', JSON.stringify(result.error));
+  } else {
+    console.log(`[email] Supplier ${approved ? 'approval' : 'rejection'} email sent → ${to[0]}`);
   }
 }

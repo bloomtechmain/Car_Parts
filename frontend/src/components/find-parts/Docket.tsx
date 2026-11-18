@@ -22,7 +22,7 @@ export default function Docket({
     ['Section', data.part_category],
     ['Part', data.part_name],
     ['Notes', data.part_description],
-    ['Customer', data.full_name ? 'Held by CarParts Finder' : undefined],
+    ['Customer', data.email ? 'Held by CarParts Finder' : undefined],
   ];
   const filled = rows.filter(([, v]) => v).length;
 

@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
-    "start": "node dist/server.js"
+    "start": "node dist/server.js",
+    "test:email": "tsx src/scripts/testEmail.ts"
   },
   "keywords": [],
   "author": "",
@@ -20,6 +21,7 @@
     "helmet": "^8.2.0",
     "jsonwebtoken": "^9.0.3",
     "multer": "^1.4.4",
+    "nodemailer": "^10.6.0",
     "pg": "^8.21.0",
     "resend": "^3.5.0",
     "uuid": "^10.0.0",
@@ -32,6 +34,7 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/multer": "^2.1.0",
     "@types/node": "^20.19.42",
+    "@types/nodemailer": "^8.0.2",
     "@types/pg": "^8.20.0",
     "@types/uuid": "^10.0.0",
     "tsx": "^4.22.4",

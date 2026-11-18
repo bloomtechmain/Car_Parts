@@ -1,26 +1,14 @@
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
-import toast from 'react-hot-toast';
-import StepIndicator from '../../components/find-parts/StepIndicator';
-import Step1CarInfo from '../../components/find-parts/Step1CarInfo';
-import Step2PartInfo from '../../components/find-parts/Step2PartInfo';
-import Step3ContactInfo from '../../components/find-parts/Step3ContactInfo';
-import SuccessScreen from '../../components/find-parts/SuccessScreen';
+import { motion } from 'framer-motion';
+import { useAuthStore } from '../../store/authStore';
+import RequestWizard, { RequestBlockedNotice } from '../../components/find-parts/RequestWizard';
+import { useRequestBlock } from '../../components/find-parts/useRequestBlock';
 import Docket from '../../components/find-parts/Docket';
 import PageHero from '../../components/layout/PageHero';
 import { MaskLines, Reveal, SectionMark } from '../../components/ui/Reveal';
-import api from '../../services/api';
 import { CAR_MAKES, PART_CATEGORIES, PHOTOS } from '../../constants/brand';
 import type { FindPartsFormData } from '../../types';
-
-const STEPS = ['The car', 'The part', 'Your details'];
-
-const slideVariants = {
-  enter: (dir: number) => ({ x: dir > 0 ? 60 : -60, opacity: 0 }),
-  center: { x: 0, opacity: 1 },
-  exit: (dir: number) => ({ x: dir > 0 ? -60 : 60, opacity: 0 }),
-};
 
 const TIPS = [
   ['Say which side', 'Left or right, front or rear. Half of all wrong parts are the right part for the other side.'],
@@ -45,48 +33,11 @@ function initialFromQuery(params: URLSearchParams): Partial<FindPartsFormData> {
 
 export default function FindPartsPage() {
   const [params] = useSearchParams();
-  const [step, setStep] = useState(1);
-  const [direction, setDirection] = useState(1);
-  const [formData, setFormData] = useState<Partial<FindPartsFormData>>(() => initialFromQuery(params));
-  const [live, setLive] = useState<Partial<FindPartsFormData>>({});
-  const [ticketNumber, setTicketNumber] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  const onLive = useCallback((d: Partial<FindPartsFormData>) => setLive(d), []);
-
-  const goNext = (data: Partial<FindPartsFormData>) => {
-    setDirection(1);
-    setFormData((prev) => ({ ...prev, ...data }));
-    setLive({});
-    setStep((s) => s + 1);
-  };
-
-  const goBack = () => {
-    setDirection(-1);
-    setLive({});
-    setStep((s) => s - 1);
-  };
-
-  const handleSubmit = async (contactData: Partial<FindPartsFormData>) => {
-    const payload = { ...formData, ...contactData };
-    setFormData(payload);
-    setLoading(true);
-    try {
-      const res = await api.post('/api/tickets', payload);
-      setTicketNumber(res.data.ticket_number);
-      setStep(4);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    } catch (err: unknown) {
-      const msg = err && typeof err === 'object' && 'response' in err
-        ? (err as { response?: { data?: { error?: string } } }).response?.data?.error
-        : 'Something went wrong. Please try again.';
-      toast.error(msg || 'Something went wrong. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const docketData = { ...formData, ...live };
+  const [initial] = useState(() => initialFromQuery(params));
+  const logout = useAuthStore((s) => s.logout);
+  // Only customer accounts can raise requests. Guests fill in the steps and log in / register at the end;
+  // admin and supplier accounts are blocked so staff and suppliers stay separate from customers.
+  const blocked = useRequestBlock();
 
   return (
     <>
@@ -94,64 +45,46 @@ export default function FindPartsPage() {
         index="02"
         label="Request desk"
         title={['Tell us', 'what broke.']}
-        intro="Three short steps. No account, no fee. Your request goes to verified suppliers the moment you send it."
+        intro="Three short steps, no fee. Your request goes to verified suppliers the moment you send it — and you can track it in your account."
         photo={PHOTOS.openBonnet}
-        rail={['Takes about two minutes', 'Free, no account', 'Your details stay with us']}
+        rail={['Takes about two minutes', 'Free customer account', 'Your details stay with us']}
         compact
       />
 
-      {/* ── the form ── */}
-      <section id="request" className="bg-ink py-16 lg:py-24">
-        <div className="shell grid gap-12 lg:grid-cols-12">
-          <div className="lg:col-span-7">
-            {step < 4 && <StepIndicator currentStep={step} steps={STEPS} />}
-            <div className="overflow-hidden">
-              <AnimatePresence mode="wait" custom={direction}>
-                <motion.div
-                  key={step}
-                  custom={direction}
-                  variants={slideVariants}
-                  initial="enter"
-                  animate="center"
-                  exit="exit"
-                  transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-                >
-                  {step === 1 && <Step1CarInfo defaultValues={formData} onNext={goNext} onLive={onLive} />}
-                  {step === 2 && (
-                    <Step2PartInfo defaultValues={formData} onNext={goNext} onBack={goBack} onLive={onLive} />
-                  )}
-                  {step === 3 && (
-                    <Step3ContactInfo
-                      defaultValues={formData}
-                      onSubmit={handleSubmit}
-                      onBack={goBack}
-                      onLive={onLive}
-                      loading={loading}
-                    />
-                  )}
-                  {step === 4 && ticketNumber && <SuccessScreen ticketNumber={ticketNumber} />}
-                </motion.div>
-              </AnimatePresence>
-            </div>
+      {/* ── who may request: customers only ── */}
+      {blocked ? (
+        <section id="request" className="bg-ink py-16 lg:py-24">
+          <div className="shell">
+            <RequestBlockedNotice role={blocked} onLogout={logout} />
           </div>
-
-          <aside className="lg:col-span-4 lg:col-start-9">
-            <div className="lg:sticky lg:top-24">
-              <motion.div
-                initial={{ opacity: 0, y: 30, rotate: 2 }}
-                animate={{ opacity: 1, y: 0, rotate: step === 4 ? -1.5 : 0.6 }}
-                transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1], delay: 0.2 }}
-              >
-                <Docket data={docketData} ticketNumber={ticketNumber} />
-              </motion.div>
-              <p className="mt-8 text-sm leading-relaxed text-steel">
-                This is what suppliers will see — minus anything personal. The more of it is filled in, the
-                quicker and closer the quotes.
-              </p>
-            </div>
-          </aside>
-        </div>
-      </section>
+        </section>
+      ) : (
+        /* ── the form ── */
+        <section id="request" className="bg-ink py-16 lg:py-24">
+          <RequestWizard initial={initial} onSubmitted={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
+            {({ form, docketData, step, ticketNumber }) => (
+              <div className="shell grid gap-12 lg:grid-cols-12">
+                <div className="lg:col-span-7">{form}</div>
+                <aside className="lg:col-span-4 lg:col-start-9">
+                  <div className="lg:sticky lg:top-24">
+                    <motion.div
+                      initial={{ opacity: 0, y: 30, rotate: 2 }}
+                      animate={{ opacity: 1, y: 0, rotate: step === 4 ? -1.5 : 0.6 }}
+                      transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1], delay: 0.2 }}
+                    >
+                      <Docket data={docketData} ticketNumber={ticketNumber} />
+                    </motion.div>
+                    <p className="mt-8 text-sm leading-relaxed text-steel">
+                      This is what suppliers will see — minus anything personal. The more of it is filled in, the
+                      quicker and closer the quotes.
+                    </p>
+                  </div>
+                </aside>
+              </div>
+            )}
+          </RequestWizard>
+        </section>
+      )}
 
       {/* ── tips ── */}
       <section className="paper-section py-20 lg:py-28">

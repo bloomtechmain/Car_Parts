@@ -56,8 +56,11 @@ export default function SupplierManagement({ suppliers, onRefresh }: Props) {
       await api.patch(`/api/admin/suppliers/${supplier.id}`, { is_active: !supplier.is_active });
       toast.success(`Supplier ${supplier.is_active ? 'deactivated' : 'activated'}`);
       onRefresh();
-    } catch {
-      toast.error('Failed to update supplier');
+    } catch (err: unknown) {
+      const msg = err && typeof err === 'object' && 'response' in err
+        ? (err as { response?: { data?: { error?: string } } }).response?.data?.error
+        : undefined;
+      toast.error(msg || 'Failed to update supplier');
     }
   };
 

@@ -8,6 +8,9 @@ import SelectOptionPage from '../pages/public/SelectOptionPage';
 import LoginPage from '../pages/dashboard/LoginPage';
 import SupplierDashboard from '../pages/dashboard/SupplierDashboard';
 import AdminDashboard from '../pages/dashboard/AdminDashboard';
+import CustomerDashboard from '../pages/dashboard/CustomerDashboard';
+import RegisterPage from '../pages/dashboard/RegisterPage';
+import SupplierRegisterPage from '../pages/dashboard/SupplierRegisterPage';
 import ProtectedRoute from './ProtectedRoute';
 import PublicLayout from '../components/layout/PublicLayout';
 
@@ -25,6 +28,24 @@ export const router = createBrowserRouter(
     },
     { path: '/select-option', element: <SelectOptionPage /> },
     { path: '/dashboard/login', element: <LoginPage /> },
+    { path: '/register', element: <RegisterPage /> },
+    { path: '/supplier/register', element: <SupplierRegisterPage /> },
+    {
+      path: '/dashboard/customer',
+      element: (
+        <ProtectedRoute role="customer">
+          <CustomerDashboard />
+        </ProtectedRoute>
+      ),
+    },
+    {
+      path: '/dashboard/customer/account',
+      element: (
+        <ProtectedRoute role="customer">
+          <CustomerDashboard />
+        </ProtectedRoute>
+      ),
+    },
     {
       path: '/dashboard/supplier',
       element: (
@@ -43,6 +64,22 @@ export const router = createBrowserRouter(
     },
     {
       path: '/dashboard/admin/suppliers',
+      element: (
+        <ProtectedRoute role="admin">
+          <AdminDashboard />
+        </ProtectedRoute>
+      ),
+    },
+    {
+      path: '/dashboard/admin/supplier-requests',
+      element: (
+        <ProtectedRoute role="admin">
+          <AdminDashboard />
+        </ProtectedRoute>
+      ),
+    },
+    {
+      path: '/dashboard/admin/customers',
       element: (
         <ProtectedRoute role="admin">
           <AdminDashboard />

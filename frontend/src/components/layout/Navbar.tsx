@@ -5,6 +5,8 @@ import { cn } from '../../utils/cn';
 import { BRAND, NAV_LINKS } from '../../constants/brand';
 import Logo from '../ui/Logo';
 import Button from '../ui/Button';
+import { LayoutDashboard } from 'lucide-react';
+import { useAuthStore } from '../../store/authStore';
 
 const EASE = [0.76, 0, 0.24, 1] as const;
 
@@ -16,6 +18,14 @@ export default function Navbar() {
   const [menuPath, setMenuPath] = useState<string | null>(null);
   const menuOpen = menuPath === location.pathname;
   const { scrollY } = useScroll();
+
+  // Logged-in suppliers/admins get a way back to their dashboard instead of a login link
+  const { token, user } = useAuthStore();
+  const loggedIn = Boolean(token && user);
+  const portalHref = loggedIn ? `/dashboard/${user!.role}` : '/dashboard/login';
+  const portalLabel = loggedIn
+    ? user!.role === 'admin' ? 'Admin dashboard' : user!.role === 'customer' ? 'My portal' : 'Supplier dashboard'
+    : 'Log in';
 
   // Slide away when scrolling down, come back on the way up
   useMotionValueEvent(scrollY, 'change', (y) => {
@@ -70,9 +80,20 @@ export default function Navbar() {
           </nav>
 
           <div className="hidden items-center gap-6 lg:flex">
-            <Link to="/dashboard/login" className="link-draw text-sm text-steel transition-colors hover:text-bone">
-              Supplier login
-            </Link>
+            {loggedIn ? (
+              <Link
+                to={portalHref}
+                className="flex items-center gap-2 rounded-full border border-signal/60 px-3.5 py-1.5 text-sm text-bone transition-colors hover:bg-signal hover:text-ink"
+                title={`Back to your ${portalLabel.toLowerCase()}`}
+              >
+                <LayoutDashboard size={15} />
+                {portalLabel}
+              </Link>
+            ) : (
+              <Link to={portalHref} className="link-draw text-sm text-steel transition-colors hover:text-bone">
+                {portalLabel}
+              </Link>
+            )}
             <Link to="/find-parts" tabIndex={-1}>
               <Button size="sm" arrow>
                 Request a part
@@ -144,7 +165,10 @@ export default function Navbar() {
                 </Button>
               </Link>
               <div className="flex justify-between text-sm text-steel">
-                <Link to="/dashboard/login">Supplier login</Link>
+                <Link to={portalHref} className={cn('flex items-center gap-2', loggedIn && 'text-signal')}>
+                  {loggedIn && <LayoutDashboard size={15} />}
+                  {portalLabel}
+                </Link>
                 <a href={`mailto:${BRAND.email}`}>{BRAND.email}</a>
               </div>
             </motion.div>

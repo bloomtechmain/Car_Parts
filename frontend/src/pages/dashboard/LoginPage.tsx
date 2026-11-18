@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, Navigate, useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -12,6 +12,7 @@ import { MaskLines } from '../../components/ui/Reveal';
 import api from '../../services/api';
 import { useAuthStore } from '../../store/authStore';
 import { PHOTOS } from '../../constants/brand';
+import { safeNext, afterLoginPath } from '../../utils/authRedirect';
 
 const schema = z.object({
   email: z.string().email('Valid email required'),
@@ -22,21 +23,37 @@ type FormData = z.infer<typeof schema>;
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const next = safeNext(searchParams.get('next'));
+  // Coming from an order email: which account to log in with (masked, e.g. "ni***@gmail.com")
+  const nextParams = new URLSearchParams(next?.split('?')[1] ?? '');
+  const accountHint = searchParams.get('hint') ?? nextParams.get('hint');
+  const wrongAccount = searchParams.get('reason') === 'wrong-account';
+  const fromOrder = Boolean(nextParams.get('ticket'));
   const login = useAuthStore((s) => s.login);
+  const { token, user } = useAuthStore();
   const [loading, setLoading] = useState(false);
 
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
   });
 
+  // Already signed in (e.g. came back from the public website) — skip the login form
+  if (token && user) {
+    return <Navigate to={afterLoginPath(user.role, next)} replace />;
+  }
+
   const onSubmit = async (data: FormData) => {
     setLoading(true);
     try {
       const res = await api.post('/api/auth/login', data);
       login(res.data.token, res.data.user);
-      navigate(`/dashboard/${res.data.user.role}`, { replace: true });
-    } catch {
-      toast.error('Invalid email or password');
+      navigate(afterLoginPath(res.data.user.role, next), { replace: true });
+    } catch (err: unknown) {
+      const msg = err && typeof err === 'object' && 'response' in err
+        ? (err as { response?: { data?: { error?: string } } }).response?.data?.error
+        : undefined;
+      toast.error(msg || 'Invalid email or password');
     } finally {
       setLoading(false);
     }
@@ -55,7 +72,7 @@ export default function LoginPage() {
         />
         <div className="absolute inset-0 bg-gradient-to-t from-ink via-ink/50 to-ink/30" />
         <div className="absolute inset-x-0 bottom-0 p-12">
-          <p className="label mb-6 text-signal">Supplier &amp; admin portal</p>
+          <p className="label mb-6 text-signal">Customers · Suppliers · Admin</p>
           <h2 className="display text-[clamp(3rem,5vw,5rem)] text-bone">
             <MaskLines animateOnMount delay={0.3} lines={['Requests in.', 'Quotes out.']} />
           </h2>
@@ -79,7 +96,22 @@ export default function LoginPage() {
           className="mx-auto my-auto w-full max-w-sm py-16"
         >
           <p className="label mb-4 text-steel">Sign in</p>
-          <h1 className="display mb-10 text-6xl text-bone">Welcome back.</h1>
+          <h1 className="display mb-4 text-6xl text-bone">Welcome back.</h1>
+          <p className="mb-10 text-sm text-steel">
+            One sign-in for customers and suppliers. Your password opens the right account.
+          </p>
+
+          {(wrongAccount || fromOrder) && (
+            <div role="status" className="mb-8 border-l-2 border-signal bg-ink-2 px-4 py-3 text-sm text-steel">
+              <p className="text-bone">
+                {wrongAccount ? 'That order belongs to a different account.' : 'Log in to see your order.'}
+              </p>
+              <p className="mt-1">
+                Please sign in with the customer account used for this order
+                {accountHint ? <> — <span className="font-mono text-signal">{accountHint}</span></> : null}.
+              </p>
+            </div>
+          )}
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
             <div>
@@ -99,12 +131,20 @@ export default function LoginPage() {
             </Button>
           </form>
 
-          <p className="mt-10 border-t border-ink-line pt-6 text-sm text-steel">
-            Not a supplier yet?{' '}
-            <Link to="/contact" className="link-draw text-bone">
-              Ask to join the network
-            </Link>
-          </p>
+          <div className="mt-10 space-y-3 border-t border-ink-line pt-6 text-sm text-steel">
+            <p>
+              Need a part and no account yet?{' '}
+              <Link to={next ? `/register?next=${encodeURIComponent(next)}` : '/register'} className="link-draw text-signal">
+                Create a customer account
+              </Link>
+            </p>
+            <p>
+              Not a supplier yet?{' '}
+              <Link to="/supplier/register" className="link-draw text-bone">
+                Apply for a supplier account
+              </Link>
+            </p>
+          </div>
         </motion.div>
       </div>
     </div>

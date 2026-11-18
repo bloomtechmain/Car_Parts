@@ -15,9 +15,11 @@ interface Props {
   inline?: boolean;
   onClose: () => void;
   onStatusChange?: (id: number, status: string) => void;
+  /** Called after the success popup for "Send Options Email to Customer" */
+  onOptionsSent?: () => void;
 }
 
-export default function TicketDetailModal({ ticketId, isAdmin, inline, onClose, onStatusChange }: Props) {
+export default function TicketDetailModal({ ticketId, isAdmin, inline, onClose, onStatusChange, onOptionsSent }: Props) {
   const [ticket, setTicket] = useState<TicketDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [adminPrices, setAdminPrices] = useState<Record<number, string>>({});
@@ -25,6 +27,14 @@ export default function TicketDetailModal({ ticketId, isAdmin, inline, onClose, 
   const [savedPrice, setSavedPrice] = useState<Record<number, boolean>>({});
   const [sendingOptions, setSendingOptions] = useState(false);
   const [selectedReplies, setSelectedReplies] = useState<Set<number>>(new Set());
+  const [sentCount, setSentCount] = useState<number | null>(null);
+
+  // Success popup closes by itself after a moment, then the admin is taken on
+  useEffect(() => {
+    if (sentCount === null) return;
+    const t = setTimeout(() => { setSentCount(null); onOptionsSent?.(); }, 2500);
+    return () => clearTimeout(t);
+  }, [sentCount, onOptionsSent]);
 
   useEffect(() => {
     const load = async () => {
@@ -84,7 +94,11 @@ export default function TicketDetailModal({ ticketId, isAdmin, inline, onClose, 
       const res = await api.post(`/api/admin/tickets/${ticketId}/send-options`, {
         reply_ids: Array.from(selectedReplies),
       });
-      toast.success(`Options email sent to customer (${res.data.options_count} option${res.data.options_count !== 1 ? 's' : ''})`);
+      if (onOptionsSent) {
+        setSentCount(res.data.options_count);
+      } else {
+        toast.success(`Options email sent to customer (${res.data.options_count} option${res.data.options_count !== 1 ? 's' : ''})`);
+      }
     } catch (err: unknown) {
       const msg = err && typeof err === 'object' && 'response' in err
         ? (err as { response?: { data?: { error?: string } } }).response?.data?.error
@@ -161,7 +175,7 @@ export default function TicketDetailModal({ ticketId, isAdmin, inline, onClose, 
                       { label: 'Name', value: ticket.customer.full_name },
                       { label: 'Email', value: ticket.customer.email },
                       { label: 'Phone', value: ticket.customer.phone },
-                      { label: 'Location', value: ticket.customer.location },
+                      { label: 'Location', value: ticket.customer.location || '—' },
                     ].map(({ label, value }) => (
                       <div key={label}>
                         <p className="text-slate-500 text-xs">{label}</p>
@@ -331,8 +345,50 @@ export default function TicketDetailModal({ ticketId, isAdmin, inline, onClose, 
 
   if (inline) return content;
 
+  const successPopup = (
+    <AnimatePresence>
+      {sentCount !== null && (
+        <motion.div
+          key="sent-popup"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <motion.div
+            role="alertdialog"
+            aria-label="Options sent"
+            initial={{ scale: 0.9, y: 12 }}
+            animate={{ scale: 1, y: 0 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 22 }}
+            className="w-full max-w-sm rounded-2xl border border-green-500/40 bg-navy-card p-8 text-center"
+          >
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ type: 'spring', stiffness: 260, damping: 15, delay: 0.1 }}
+              className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-green-500/15"
+            >
+              <CheckCircle2 size={36} className="text-green-400" />
+            </motion.div>
+            <h3 className="mb-2 text-xl font-bold text-white">Options sent!</h3>
+            <p className="mb-6 text-sm text-slate-400">
+              {sentCount} option{sentCount !== 1 ? 's' : ''} emailed to the customer for {ticket?.ticket_number}.
+              Taking you to Closed tickets…
+            </p>
+            <Button className="w-full" onClick={() => { setSentCount(null); onOptionsSent?.(); }}>
+              OK
+            </Button>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+
   return (
     <AnimatePresence>
+      {successPopup}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
